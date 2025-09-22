@@ -167,7 +167,7 @@ server <- function(input, output, session) {
         )
       )
     reactable(
-      data, pagination = FALSE, searchable = TRUE, highlight = TRUE, bordered = TRUE, striped = FALSE, compact = TRUE,
+      data, pagination = FALSE, searchable = TRUE, highlight = TRUE, bordered = TRUE, striped = FALSE, compact = TRUE, resizable = TRUE,
       columns = list(
         sample = colDef(minWidth = 200),
         rawSeqLen = colDef(minWidth = 50),
@@ -268,6 +268,7 @@ server <- function(input, output, session) {
       data, 
       pagination = FALSE, searchable = TRUE, highlight = TRUE, 
       bordered = TRUE, striped = FALSE, compact = TRUE,
+      wrap = FALSE, resizable = TRUE,
       style = list(fontSize = "14px") # Decrease font size
     )
       
