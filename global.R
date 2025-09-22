@@ -11,6 +11,22 @@ library(RcppRoll)
 library(sangeranalyseR)
 library(dplyr)
 
+crl <- function(qscores, window_size, qval) {
+  if (length(qscores) < window_size) {
+    qscores_w <- rep(1, window_size)
+  } else {
+    qscores_w <- RcppRoll::roll_mean(qscores, n = window_size, na.rm = T)
+  }
+  rl <- rle(qscores_w >= qval)
+  
+  # if there are no rl20 then this is false and crl20 is set to 0, using just max() returns -Inf 
+  if(any(rl$values)) {
+    max(rl$lengths[rl$values], na.rm = TRUE)
+  } else {
+    0
+  }
+}
+
 get_ab1 <- function(abfile) {
   
   obj <- sangeranalyseR::SangerRead(readFileName = abfile, readFeature = 'Forward Read')
@@ -60,6 +76,7 @@ get_ab1 <- function(abfile) {
       
       df <- tibble::tibble(
         sample = obj@abifRawData@data$SMPL.1,
+        #sample = obj@readFileName,
         rundate = paste0(obj@abifRawData@data$RUND.1$year, "-", obj@abifRawData@data$RUND.1$month, "-", obj@abifRawData@data$RUND.1$day),
         rawSeqLen = obj@QualityReport@rawSeqLength, 
         trimSeqLen = obj@QualityReport@trimmedSeqLength,
