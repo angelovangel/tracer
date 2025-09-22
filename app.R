@@ -42,11 +42,13 @@ ui <- page_navbar(
   sidebar = sidebar,
   title = "",
   nav_panel('QC flags',
-    reactableOutput('table'),
+    reactableOutput('table1'),
     htmlOutput('qc_footer')
   ),
-  nav_panel('Run info', 'Under construction'),
-  nav_panel('Summary', 'Under construction'),
+  nav_panel('Run info', 
+    reactableOutput('table2')
+  ),
+  nav_panel('QC Summary', 'Under construction'),
   theme = bs_theme(bootswatch = "simplex")
   #
 )
@@ -147,9 +149,9 @@ server <- function(input, output, session) {
      # window size and QV threshold
   })
   
-  output$table <- renderReactable({
+  output$table1 <- renderReactable({
     data <- df2() %>%
-      select('sample', 'rawSeqLen', 'crl20', 'basesQ20', 'trimMeanQscore') %>%
+      select('sample', 'well', 'rawSeqLen', 'crl20', 'basesQ20', 'trimMeanQscore') %>%
       rowwise() %>%
       mutate(
         sample = ifelse(input$shorten_names, str_trunc(sample, width = 42), sample),
@@ -165,10 +167,11 @@ server <- function(input, output, session) {
         )
       )
     reactable(
-      data, pagination = FALSE, searchable = TRUE, highlight = TRUE, bordered = TRUE, striped = TRUE, compact = TRUE,
+      data, pagination = FALSE, searchable = TRUE, highlight = TRUE, bordered = TRUE, striped = FALSE, compact = TRUE,
       columns = list(
         sample = colDef(minWidth = 200),
         rawSeqLen = colDef(minWidth = 50),
+        well = colDef(minWidth = 30),
         crl20 = colDef(
           name = "CRL",
           minWidth = 50,
@@ -257,6 +260,18 @@ server <- function(input, output, session) {
     )
   )
 })
+  
+  output$table2 <- renderReactable({
+    data <- df() %>%
+      select('sample', 'rundate', 'instrument', 'machine', 'capillary', 'analysis_prot', 'data_coll_modfile', 'dyeset_name', 'polymer_expdate')
+    reactable(
+      data, 
+      pagination = FALSE, searchable = TRUE, highlight = TRUE, 
+      bordered = TRUE, striped = FALSE, compact = TRUE,
+      style = list(fontSize = "14px") # Decrease font size
+    )
+      
+  })
 
 }
 

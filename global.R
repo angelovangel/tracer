@@ -76,7 +76,7 @@ get_ab1 <- function(abfile) {
       
       df <- tibble::tibble(
         sample = obj@abifRawData@data$SMPL.1,
-        #sample = obj@readFileName,
+        well = obj@abifRawData@data$TUBE.1,
         rundate = paste0(obj@abifRawData@data$RUND.1$year, "-", obj@abifRawData@data$RUND.1$month, "-", obj@abifRawData@data$RUND.1$day),
         rawSeqLen = obj@QualityReport@rawSeqLength, 
         trimSeqLen = obj@QualityReport@trimmedSeqLength,
@@ -90,7 +90,16 @@ get_ab1 <- function(abfile) {
         basesQ40 = sum(phredscores >= 40),
         crl20 = crl20,
         polymerLot = obj@abifRawData@data$SMLt.1,
-        machine = obj@abifRawData@data$MCHN.1
+        polymer_expdate = obj@abifRawData@data$SMED.1,
+        machine = obj@abifRawData@data$MCHN.1,
+        instrument = obj@abifRawData@data$HCFG.3,
+        capillary = obj@abifRawData@data$LANE.1,
+        len_to_detector = obj@abifRawData@data$LNTD.1,
+        gel_type = obj@abifRawData@data$GTyp.1,
+        analysis_prot = obj@abifRawData@data$APrN.1,
+        data_coll_modfile = obj@abifRawData@data$MODF.1,
+        dyeset_name = obj@abifRawData@data$DySN.1,
+        
         # signal = list(signal) does not work as expected
         #crl30 = crl30
         )
