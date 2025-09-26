@@ -11,6 +11,7 @@ library(RcppRoll)
 library(sangeranalyseR)
 library(dplyr)
 
+# returns numeric
 crl <- function(qscores, window_size, qval) {
   if (length(qscores) < window_size) {
     qscores_w <- rep(1, window_size)
@@ -21,11 +22,29 @@ crl <- function(qscores, window_size, qval) {
   
   # if there are no rl20 then this is false and crl20 is set to 0, using just max() returns -Inf 
   if(any(rl$values)) {
-    max(rl$lengths[rl$values], na.rm = TRUE)
+    crl <- max(rl$lengths[rl$values], na.rm = TRUE)
+    
+    #start and end of max len T 
+    
+    trueind <- which(rl$values) # true indexes 
+    maxtrueind <- trueind[which.max(rl$lengths[which(rl$values)])] # longest true index
+    # stupid R 1-indexing
+    crl_start <- ifelse(maxtrueind == 1, 1, cumsum(rl$lengths)[maxtrueind - 1])
+    crl_end <- cumsum(rl$lengths)[maxtrueind]
+    
   } else {
-    0
+    crl <- 0
+    crl_start <- 0
+    crl_end <- 0
   }
+  
+  
+  
+  return(
+    list(crl = crl, crl_start = crl_start, crl_end = crl_end)
+  )
 }
+
 
 get_ab1 <- function(abfile) {
   

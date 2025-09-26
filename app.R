@@ -5,9 +5,22 @@ library(reactable)
 library(bsicons)
 library(purrr)
 library(sparkline)
+library(sparkline)
 #library(sangerseqR)
 
 source('global.R')
+
+base_colors <- c(
+  "A" = "#4CAF50",   # green
+  "T" = "#F44336",   # red
+  "G" = "#2196F3",   # blue
+  "C" = "#FFEB3B"    # yellow
+)
+
+make_crl_spark <- function(){
+  
+}
+
 
 sidebar <- sidebar(
   tags$div(
@@ -45,12 +58,15 @@ ui <- page_navbar(
     reactableOutput('table1'),
     htmlOutput('qc_footer')
   ),
-  nav_panel('Run info', 
-    reactableOutput('table2')
+  nav_panel('CRL plots',
+            reactableOutput('table2')        
   ),
-  nav_panel('QC Summary', 'Under construction'),
+  nav_panel('QC Summary', 'Under construction'
+  ),
+  nav_panel('Run info', 
+    reactableOutput('table3')
+  ),
   theme = bs_theme(bootswatch = "simplex")
-  #
 )
 
 server <- function(input, output, session) {
@@ -145,10 +161,15 @@ server <- function(input, output, session) {
   df2 <- reactive({
     df() %>%
       rowwise() %>%
-      mutate(crl20 = crl(qscores = unlist(qscores), window_size = qc_thresholds$crl_window_size, qval = qc_thresholds$crl_qv_threshold))
+      mutate(
+        crl20 = crl(qscores = unlist(qscores), window_size = qc_thresholds$crl_window_size, qval = qc_thresholds$crl_qv_threshold)$crl,
+        crl_start = crl(qscores = unlist(qscores), window_size = qc_thresholds$crl_window_size, qval = qc_thresholds$crl_qv_threshold)$crl_start,
+        crl_end = crl(qscores = unlist(qscores), window_size = qc_thresholds$crl_window_size, qval = qc_thresholds$crl_qv_threshold)$crl_end
+        )
      # window size and QV threshold
   })
   
+  # QC flags
   output$table1 <- renderReactable({
     data <- df2() %>%
       select('sample', 'well', 'rawSeqLen', 'crl20', 'basesQ20', 'trimMeanQscore') %>%
@@ -173,7 +194,7 @@ server <- function(input, output, session) {
         rawSeqLen = colDef(minWidth = 50),
         well = colDef(minWidth = 30),
         crl20 = colDef(
-          name = "CRL",
+          name = paste0("CRL",  qc_thresholds$crl_qv_threshold),
           minWidth = 50,
           style = function(value) {
             if (is.na(value)) return(list(color = "#eee"))
@@ -261,7 +282,63 @@ server <- function(input, output, session) {
   )
 })
   
+  #Traces
   output$table2 <- renderReactable({
+    data <- df2() %>%
+      select('sample', 'seq', 'qscores', 'crl20', 'crl_start', 'crl_end', 'rawSeqLen')
+    #qc_thresholds$crl_window_size, qval = qc_thresholds$crl_qv_threshold
+    reactable(
+      data,
+      columns = list(
+        sample = colDef(minWidth = 200, vAlign = 'center'),
+        seq = colDef(show = FALSE),
+        crl_start = colDef(show = F),
+        crl_end = colDef(show = F),
+        rawSeqLen = colDef(show = F),
+        crl20 = colDef(name = paste0("CRL",  qc_thresholds$crl_qv_threshold), minWidth = 70),
+        qscores = colDef(
+          vAlign = 'bottom',
+          name = paste0("QV roll mean (CRL", qc_thresholds$crl_qv_threshold, ")"),
+          cell = function(value, index) {
+            sp1 <- sparkline(
+              RcppRoll::roll_mean(value, n = qc_thresholds$crl_window_size, by = 1),
+              type = 'line', 
+              lineColor = "darkred",
+              width = 800, height = 50,
+              chartRangeMin = 1,
+              chartRangeMax = 70,
+              normalRangeMin = 0,
+              normalRangeMax = qc_thresholds$crl_qv_threshold,
+              fillColor = NA, 
+              lineWidth = 4,
+              disableTooltips = TRUE
+              #valueSpots = "{':19': 'green, '20:': 'red'}",
+              #spotRadius = 3,
+              #tooltipFormat = '<span style="width: 100px; display: inline-block;"> Pos: {{x}} <br>QV: {{y}}</span>'
+            )
+            # find out where to place the bars
+            # a <- rep(0, data[index, ]$crl_start)
+            # b <- rep(0, data[index, ]$crl_end - data[index, ]$crl_start)
+            # c <- rep(0, data[index, ]$rawSeqLen - data[index, ]$crl_end)
+            # # 
+            # sp2 <- sparkline(
+            #   c(a, 1, b, 1, c), 
+            #   type = 'bar', barColor = 'black'
+            # )
+            spk_composite(sp1, options = list(width = 800, height = 50))
+          },
+          minWidth = 800
+        )
+      ),
+      pagination = FALSE, searchable = TRUE, highlight = FALSE,
+      bordered = F, striped = FALSE, compact = F,
+      wrap = FALSE, resizable = TRUE
+      #style = list(fontSize = "14px")
+    )
+  })
+  
+  # Run info
+  output$table3 <- renderReactable({
     data <- df() %>%
       select('sample', 'rundate', 'instrument', 'machine', 'capillary', 'analysis_prot', 'data_coll_modfile', 'dyeset_name', 'polymer_expdate')
     reactable(
