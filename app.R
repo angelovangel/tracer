@@ -5,7 +5,7 @@ library(reactable)
 library(bsicons)
 library(purrr)
 library(sparkline)
-library(sparkline)
+library(writexl) # <--- ADD THIS LIBRARY for Excel download
 #library(sangerseqR)
 
 source('global.R')
@@ -42,74 +42,69 @@ sidebar <- sidebar(
 ui <- page_navbar(
   sidebar = sidebar,
   title = "",
+  header = tags$head(
+    tags$style(
+      # CSS to make the chromatogram plot container horizontally scrollable
+      HTML("
+        .scrollable-plot-container {
+          overflow-x: auto;
+          width: 100%; /* Ensures the container takes up the full width of the detail row */
+          white-space: nowrap; /* Important to keep the content on one line for horizontal scrolling */
+        }
+      ")
+    )
+  ),
   nav_panel('QC flags',
-    reactableOutput('table1'),
-    htmlOutput('qc_footer')
+            reactableOutput('table1'),
+            # Use uiOutput to conditionally render the download button and footer
+            uiOutput('qc_controls_and_footer') 
   ),
   nav_panel('CRL plots',
-    reactableOutput('table2')        
+            reactableOutput('table2')        
   ),
   #nav_panel('QC Summary'),
   nav_panel('Run info', 
-    reactableOutput('table3')
+            reactableOutput('table3')
   ),
   theme = bs_theme(bootswatch = "simplex")
 )
 
 server <- function(input, output, session) {
-
+  
   # Show modal when QC settings button is clicked
   observeEvent(input$settings, {
     showModal(modalDialog(size = 'l',
-      title = "QC Settings",
-      tags$p('CRL settings', style = "font-weight: bold; font-size: 15px;"),
-      # tags$div(
-      #   style = "display: flex; gap: 16px; align-items: center; font-size: 13px; color: #1C398E;",
-      #   numericInput(
-      #     'crl_window_size',
-      #     label = 'CRL window size',
-      #     min = 5,
-      #     max = 100,
-      #     value = max(5, min(100, qc_thresholds$crl_window_size)),
-      #     width = "110px"
-      #   ),
-      #   numericInput(
-      #     'crl_qv_threshold',
-      #     label = 'CRL QV threshold',
-      #     min = 5,
-      #     max = 50,
-      #     value = max(5, min(50, qc_thresholds$crl_qv_threshold)),
-      #     width = "110px"
-      #   ),
-      # ),
-      tags$div(
-        style = "display: flex; gap: 16px; width: 100%; font-size: 12px; color: #1C398E;",
-        sliderInput("crl_window_size", "CRL window size", min = 5, max = 100, value = max(5, min(100, qc_thresholds$crl_window_size)), width = "100%"),
-        sliderInput("crl_qv_threshold", "CRL QV threshold", min = 5, max = 50, value = max(5, min(50, qc_thresholds$crl_qv_threshold)), width = "100%")
-      ),
-      tags$hr(style = "border-top: 1px solid #D6D3D1; margin: 16px 0;"),
-      
-      tags$p("Thresholds for sample QC flagging:", style = "font-weight: bold; font-size: 15px;"),
-      tags$div(
-        style = "width: 100%; font-size: 12px; color: #1C398E;",
-        sliderInput("qc_crl20", "CRL thresholds (fail, suspect)", min = 0, max = 1500, value = c(qc_thresholds$crl20_fail, qc_thresholds$crl20_suspect), step = 10, width = "100%")
-      ),
-      tags$div(
-        style = "width: 100%; font-size: 12px; color: #1C398E;",
-        sliderInput("qc_basesQ20", "Q20+ thresholds (fail, suspect)", min = 0, max = 1500, value = c(qc_thresholds$basesQ20_fail, qc_thresholds$basesQ20_suspect), step = 10, width = "100%")
-      ),
-      tags$div(
-        style = "width: 100%; font-size: 12px; color: #1C398E;",
-        sliderInput("qc_trimMeanQscore", "Trim Qscore thresholds (fail, suspect)", min = 0, max = 60, value = c(qc_thresholds$trimMeanQscore_fail, qc_thresholds$trimMeanQscore_suspect), step = 1, width = "100%")
-      ),
-      footer = tagList(
-        modalButton("Cancel"),
-        actionButton("apply_qc_settings", "Apply")
-      ),
-      easyClose = TRUE
+                          title = "QC Settings",
+                          tags$p('CRL settings', style = "font-weight: bold; font-size: 15px;"),
+                          
+                          tags$div(
+                            style = "display: flex; gap: 16px; width: 100%; font-size: 12px; color: #1C398E;",
+                            sliderInput("crl_window_size", "CRL window size", min = 5, max = 100, value = max(5, min(100, qc_thresholds$crl_window_size)), width = "100%"),
+                            sliderInput("crl_qv_threshold", "CRL QV threshold", min = 5, max = 50, value = max(5, min(50, qc_thresholds$crl_qv_threshold)), width = "100%")
+                          ),
+                          tags$hr(style = "border-top: 1px solid #D6D3D1; margin: 16px 0;"),
+                          
+                          tags$p("Thresholds for sample QC flagging:", style = "font-weight: bold; font-size: 15px;"),
+                          tags$div(
+                            style = "width: 100%; font-size: 12px; color: #1C398E;",
+                            sliderInput("qc_crl20", "CRL thresholds (fail, suspect)", min = 0, max = 1500, value = c(qc_thresholds$crl20_fail, qc_thresholds$crl20_suspect), step = 10, width = "100%")
+                          ),
+                          tags$div(
+                            style = "width: 100%; font-size: 12px; color: #1C398E;",
+                            sliderInput("qc_basesQ20", "Q20+ thresholds (fail, suspect)", min = 0, max = 1500, value = c(qc_thresholds$basesQ20_fail, qc_thresholds$basesQ20_suspect), step = 10, width = "100%")
+                          ),
+                          tags$div(
+                            style = "width: 100%; font-size: 12px; color: #1C398E;",
+                            sliderInput("qc_trimMeanQscore", "Trim Qscore thresholds (fail, suspect)", min = 0, max = 60, value = c(qc_thresholds$trimMeanQscore_fail, qc_thresholds$trimMeanQscore_suspect), step = 1, width = "100%")
+                          ),
+                          footer = tagList(
+                            modalButton("Cancel"),
+                            actionButton("apply_qc_settings", "Apply")
+                          ),
+                          easyClose = TRUE
     ))
   })
-
+  
   # Store QC thresholds in reactive values
   qc_thresholds <- reactiveValues(
     crl_window_size = 20,
@@ -121,7 +116,7 @@ server <- function(input, output, session) {
     trimMeanQscore_fail = 30,
     trimMeanQscore_suspect = 40
   )
-
+  
   # Update thresholds when Apply is clicked
   observeEvent(input$apply_qc_settings, {
     qc_thresholds$crl_window_size <- max(5, input$crl_window_size)
@@ -134,7 +129,7 @@ server <- function(input, output, session) {
     qc_thresholds$trimMeanQscore_suspect <- input$qc_trimMeanQscore[2]
     removeModal()
   })
-
+  
   df <- reactive({
     ab1list <- input$ab1$datapath
     req(ab1list)
@@ -151,19 +146,21 @@ server <- function(input, output, session) {
   })
   
   df2 <- reactive({
+    req(df()) 
     df() %>%
       rowwise() %>%
       mutate(
         crl20 = crl(qscores = unlist(qscores), window_size = qc_thresholds$crl_window_size, qval = qc_thresholds$crl_qv_threshold)$crl,
         crl_start = crl(qscores = unlist(qscores), window_size = qc_thresholds$crl_window_size, qval = qc_thresholds$crl_qv_threshold)$crl_start,
         crl_end = crl(qscores = unlist(qscores), window_size = qc_thresholds$crl_window_size, qval = qc_thresholds$crl_qv_threshold)$crl_end
-        )
-     # window size and QV threshold
+      )
+    # window size and QV threshold
   })
   
-  # QC flags
-  output$table1 <- renderReactable({
-    data <- df2() %>%
+  # Reactive data frame for table1, which is also used for download
+  df_table1_data <- reactive({
+    req(df2()) # Ensure data exists
+    df2() %>%
       select('sample', 'well', 'rawSeqLen', 'crl20', 'basesQ20', 'trimMeanQscore') %>%
       rowwise() %>%
       mutate(
@@ -178,7 +175,14 @@ server <- function(input, output, session) {
             trimMeanQscore < qc_thresholds$trimMeanQscore_suspect ~ "suspect",
           TRUE ~ "pass"
         )
-      )
+      ) %>%
+      ungroup() # Convert back to a standard data frame
+  })
+  
+  # QC flags 
+  output$table1 <- renderReactable({
+    data <- df_table1_data() # Use the new reactive data source
+    
     reactable(
       data, pagination = FALSE, searchable = TRUE, highlight = TRUE, bordered = TRUE, striped = FALSE, compact = TRUE, resizable = TRUE,
       style = list(fontSize = "14px"),
@@ -221,20 +225,27 @@ server <- function(input, output, session) {
         )
       },
       #################
-      
+      # ADD THIS rowStyle TO DRAW A LINE ABOVE THE FOOTER
+      rowStyle = function(index) {
+        if (index == nrow(data)) {
+          list(borderBottom = "1px solid grey") # 
+        }
+      },
+      #################
       columns = list(
         sample = colDef(
-          minWidth = 200, footer = paste0("Total ", nrow(df2()), " samples")
+          minWidth = 200, 
+          footer = paste0("Total ", nrow(df2()), " samples")
         ),
         rawSeqLen = colDef(minWidth = 50),
-        well = colDef(minWidth = 30),
+        well = colDef(minWidth = 30, show = FALSE),
         crl20 = colDef(
           name = paste0("CRL",  qc_thresholds$crl_qv_threshold),
           minWidth = 60,
           html = T,
           footer = function(values) {
             paste0("Min: ", round(min(values), 0), "<br>", "Max: ", round(max(values), 0), "<br>", "Mean: ", round(mean(values), 0))
-            },
+          },
           style = function(value) {
             if (is.na(value)) return(list(color = "#eee"))
             if (value < qc_thresholds$crl20_fail) return(list(color = "#F44336", fontWeight = "normal"))
@@ -248,7 +259,7 @@ server <- function(input, output, session) {
           html = T,
           footer = function(values) {
             paste0("Min: ", round(min(values), 0), "<br>", "Max: ", round(max(values), 0), "<br>", "Mean: ", round(mean(values), 0))
-            },
+          },
           style = function(value) {
             if (is.na(value)) return(list(color = "#eee"))
             if (value < qc_thresholds$basesQ20_fail) return(list(color = "#F44336", fontWeight = "normal"))
@@ -283,7 +294,7 @@ server <- function(input, output, session) {
               '<a style="color:#4CAF50;">Pass: </a><b>', str_count(str_flatten(value), 'pass'), 
               '</b><br><a style="color:#FFC107;">Suspect: </a><b>', str_count(str_flatten(value), 'suspect'), 
               '</b><br><a style="color:#F44336;">Fail: </a><b>', str_count(str_flatten(value), 'fail')
-              )
+            )
           },
           cell = function(value) {
             color <- switch(
@@ -294,52 +305,128 @@ server <- function(input, output, session) {
               "#eee"
             )
             htmltools::tagList(
+              value,
               htmltools::tags$span(
                 style = paste0(
-                  "display: inline-block; width: 14px; height: 14px; border-radius: 50%; background:", color, "; margin-right: 8px; vertical-align: middle;"
+                  "display: inline-block; width: 14px; height: 14px; border-radius: 50%; background:", color, "; margin-left: 8px; margin-right: 2px; vertical-align: middle;"
                 ),
                 ""
-              ),
-              value
+              )
             )
           }
         )
       )
     ) 
   })
-
-  output$qc_footer <- renderUI({
-  req(df())
-  tags$details(
-    #open = NA, # This makes the details expanded by default
-    style = "margin-top: 10px;",
-    tags$summary(
-      style = "font-size: 13px; color: #37474f; cursor: pointer;",
-      "QC settings and thresholds used"
-    ),
+  
+  # Conditional rendering of the download button and the footer
+  output$qc_controls_and_footer <- renderUI({
+    # Ensure data is present before rendering UI elements that rely on it
+    req(df_table1_data()) 
+    
+    # Use a main div with display: flex to put the two items side-by-side
     tags$div(
-      style = "background: #f5f5f5; border-radius: 6px; padding: 10px 16px; font-size: 12px; color: #37474f;",
-      tags$ul(
-        style = "margin: 8px 0 0 18px; padding: 0;",
-        tags$li(
-          paste0("CRL window size: ", qc_thresholds$crl_window_size)
-        ),
-        tags$li(
-          paste0("CRL QV threshold: ", qc_thresholds$crl_qv_threshold)
-        ),
-        tags$li(
-          paste0("CRL20: fail < ", qc_thresholds$crl20_fail, ", suspect < ", qc_thresholds$crl20_suspect)
-        ),
-        tags$li(
-          paste0("Q20+: fail < ", qc_thresholds$basesQ20_fail, ", suspect < ", qc_thresholds$basesQ20_suspect)
-        ),
-        tags$li(
-          paste0("Qscore: fail < ", qc_thresholds$trimMeanQscore_fail, ", suspect < ", qc_thresholds$trimMeanQscore_suspect)
+      style = "display: flex; justify-content: space-between; align-items: flex-start; margin-top: 10px;",
+      
+      # LEFT COLUMN:
+     
+      tags$div(
+        style = "flex: 1 1 50%; padding-top: 5px;", 
+        tags$details(
+          #open = NA, # This makes the details expanded by default
+          style = "margin-top: 0px;", # Removed margin-top since it's now handled by the parent div
+          tags$summary(
+            style = "font-size: 13px; color: #37474f; cursor: pointer;",
+            "QC settings and thresholds used"
+          ),
+          tags$div(
+            style = "border-radius: 6px; padding: 10px 16px; font-size: 12px; color: #37474f;",
+            tags$ul(
+              style = "margin: 8px 0 0 18px; padding: 0;",
+              tags$li(
+                paste0("CRL window size: ", qc_thresholds$crl_window_size)
+              ),
+              tags$li(
+                paste0("CRL QV threshold: ", qc_thresholds$crl_qv_threshold)
+              ),
+              tags$li(
+                paste0("CRL20: fail < ", qc_thresholds$crl20_fail, ", suspect < ", qc_thresholds$crl20_suspect)
+              ),
+              tags$li(
+                paste0("Q20+: fail < ", qc_thresholds$basesQ20_fail, ", suspect < ", qc_thresholds$basesQ20_suspect)
+              ),
+              tags$li(
+                paste0("Qscore: fail < ", qc_thresholds$trimMeanQscore_fail, ", suspect < ", qc_thresholds$trimMeanQscore_suspect)
+              )
+            )
+          )
         )
+      ),
+      # RIGHT COLUMN:
+      tags$div(
+        style = "display: flex; justify-content: flex-end;", 
+        downloadButton("download_table1", "Download QC Data (Excel)", class = "btn-info btn-sm")
       )
     )
+  })
+  
+  # DOWNLOAD HANDLER FOR TABLE1
+  output$download_table1 <- downloadHandler(
+    filename = function() {
+      paste0("sanger_qc_data-", Sys.Date(), ".xlsx")
+    },
+    content = function(file) {
+      # Prepare data for download
+      data_to_export <- df_table1_data() %>%
+        # Rename columns to be descriptive in the Excel file
+        rename(
+          !!paste0("CRL", qc_thresholds$crl_qv_threshold) := crl20,
+          QV20_plus = basesQ20,
+          Trimmed_Mean_Qscore = trimMeanQscore,
+          Raw_Seq_Length = rawSeqLen
+        ) %>%
+        # Select and order the final columns
+        select(
+          Sample = sample, 
+          Raw_Seq_Length, 
+          !!paste0("CRL", qc_thresholds$crl_qv_threshold), 
+          QV20_plus, 
+          Trimmed_Mean_Qscore, 
+          QC_flag
+        )
+      
+      # Prepare metadata/settings to include in a separate sheet
+      qc_settings_df <- data.frame(
+        Setting = c(
+          "CRL window size",
+          "CRL QV threshold",
+          paste0("CRL", qc_thresholds$crl_qv_threshold, " Fail Threshold"),
+          paste0("CRL", qc_thresholds$crl_qv_threshold, " Suspect Threshold"),
+          "QV20+ Fail Threshold",
+          "QV20+ Suspect Threshold",
+          "Qscore Fail Threshold",
+          "Qscore Suspect Threshold"
+        ),
+        Value = c(
+          qc_thresholds$crl_window_size,
+          qc_thresholds$crl_qv_threshold,
+          qc_thresholds$crl20_fail,
+          qc_thresholds$crl20_suspect,
+          qc_thresholds$basesQ20_fail,
+          qc_thresholds$basesQ20_suspect,
+          qc_thresholds$trimMeanQscore_fail,
+          qc_thresholds$trimMeanQscore_suspect
+        )
+      )
+      
+      # Write both data and settings to a multi-sheet Excel file
+      writexl::write_xlsx(
+        list("QC_Summary" = data_to_export, "QC_Settings" = qc_settings_df), 
+        path = file
+      )
+    }
   )
-})
+  
   
   #Traces
   output$table2 <- renderReactable({
@@ -409,9 +496,9 @@ server <- function(input, output, session) {
       wrap = FALSE, resizable = TRUE,
       style = list(fontSize = "14px") # Decrease font size
     )
-      
+    
   })
-
+  
 }
 
 shinyApp(ui, server)
