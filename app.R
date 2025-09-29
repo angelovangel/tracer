@@ -10,18 +10,6 @@ library(sparkline)
 
 source('global.R')
 
-base_colors <- c(
-  "A" = "#4CAF50",   # green
-  "T" = "#F44336",   # red
-  "G" = "#2196F3",   # blue
-  "C" = "#FFEB3B"    # yellow
-)
-
-make_crl_spark <- function(){
-  
-}
-
-
 sidebar <- sidebar(
   tags$div(
     style = "padding: 20px;",
@@ -59,10 +47,9 @@ ui <- page_navbar(
     htmlOutput('qc_footer')
   ),
   nav_panel('CRL plots',
-            reactableOutput('table2')        
+    reactableOutput('table2')        
   ),
-  nav_panel('QC Summary', 'Under construction'
-  ),
+  #nav_panel('QC Summary'),
   nav_panel('Run info', 
     reactableOutput('table3')
   ),
@@ -76,24 +63,29 @@ server <- function(input, output, session) {
     showModal(modalDialog(size = 'l',
       title = "QC Settings",
       tags$p('CRL settings', style = "font-weight: bold; font-size: 15px;"),
+      # tags$div(
+      #   style = "display: flex; gap: 16px; align-items: center; font-size: 13px; color: #1C398E;",
+      #   numericInput(
+      #     'crl_window_size',
+      #     label = 'CRL window size',
+      #     min = 5,
+      #     max = 100,
+      #     value = max(5, min(100, qc_thresholds$crl_window_size)),
+      #     width = "110px"
+      #   ),
+      #   numericInput(
+      #     'crl_qv_threshold',
+      #     label = 'CRL QV threshold',
+      #     min = 5,
+      #     max = 50,
+      #     value = max(5, min(50, qc_thresholds$crl_qv_threshold)),
+      #     width = "110px"
+      #   ),
+      # ),
       tags$div(
-        style = "display: flex; gap: 16px; align-items: center; font-size: 13px; color: #1C398E;",
-        numericInput(
-          'crl_window_size',
-          label = 'CRL window size',
-          min = 5,
-          max = 100,
-          value = max(5, min(100, qc_thresholds$crl_window_size)),
-          width = "110px"
-        ),
-        numericInput(
-          'crl_qv_threshold',
-          label = 'CRL QV threshold',
-          min = 5,
-          max = 50,
-          value = max(5, min(50, qc_thresholds$crl_qv_threshold)),
-          width = "110px"
-        ),
+        style = "display: flex; gap: 16px; width: 100%; font-size: 12px; color: #1C398E;",
+        sliderInput("crl_window_size", "CRL window size", min = 5, max = 100, value = max(5, min(100, qc_thresholds$crl_window_size)), width = "100%"),
+        sliderInput("crl_qv_threshold", "CRL QV threshold", min = 5, max = 50, value = max(5, min(50, qc_thresholds$crl_qv_threshold)), width = "100%")
       ),
       tags$hr(style = "border-top: 1px solid #D6D3D1; margin: 16px 0;"),
       
@@ -189,43 +181,108 @@ server <- function(input, output, session) {
       )
     reactable(
       data, pagination = FALSE, searchable = TRUE, highlight = TRUE, bordered = TRUE, striped = FALSE, compact = TRUE, resizable = TRUE,
+      style = list(fontSize = "14px"),
+      defaultColDef = colDef(footerStyle = list(color='grey', fontWeight = 'normal')),
+      details = function(index) {
+        # 1. Define a unique ID for the plotOutput for this row
+        plot_output_id <- paste0("chromatogram_", index)
+        
+        # 2. Render the plot inside the details row when it's opened
+        local({
+          # Define the dynamic plot output using the raw data from the current row
+          output[[plot_output_id]] <- renderPlot({
+            # df2()$data[[index]] provides the rawdata list required by plot_abif_chromatogram
+            raw_abif_data <- df2()[index,]$data 
+            
+            if (length(raw_abif_data) > 0) {
+              plot_abif_chromatogram(raw_abif_data)
+            } else {
+              # Placeholder for missing data
+              ggplot() + labs(title = "No ABIF raw data found for this sample.")
+            }
+          },
+          # Set the plot dimensions for a wide, scrollable view
+          width = 9000, 
+          height = 200
+          )
+        })
+        
+        # 3. Return the HTML structure containing the plotOutput and scrolling container
+        htmltools::div(
+          # Increase bottom padding (e.g., to 200px) to push the table footer down 
+          # by the height of the plot plus some buffer. The plot height is 200px.
+          style = "padding: 10px; padding-top: 0px; padding-bottom: 10px;", 
+          htmltools::div(
+            # Using the scrollable class defined in test.R for horizontal scrolling
+            class = "scrollable-plot-container", 
+            plotOutput(plot_output_id, width = "9000px", height = "200px")
+          )
+        )
+      },
+      # *** END OF DETAILS MODIFICATION ***
       columns = list(
-        sample = colDef(minWidth = 200),
+        sample = colDef(
+          minWidth = 200, footer = paste0("Total ", nrow(df2()), " samples")
+        ),
         rawSeqLen = colDef(minWidth = 50),
         well = colDef(minWidth = 30),
         crl20 = colDef(
           name = paste0("CRL",  qc_thresholds$crl_qv_threshold),
-          minWidth = 50,
+          minWidth = 60,
+          html = T,
+          footer = function(values) {
+            paste0("Min: ", round(min(values), 0), "<br>", "Max: ", round(max(values), 0), "<br>", "Mean: ", round(mean(values), 0))
+            },
           style = function(value) {
             if (is.na(value)) return(list(color = "#eee"))
-            if (value < qc_thresholds$crl20_fail) return(list(color = "#F44336", fontWeight = "bold"))
-            if (value < qc_thresholds$crl20_suspect) return(list(color = "#FFC107", fontWeight = "bold"))
-            list(color = "#4CAF50", fontWeight = "bold")
+            if (value < qc_thresholds$crl20_fail) return(list(color = "#F44336", fontWeight = "normal"))
+            if (value < qc_thresholds$crl20_suspect) return(list(color = "#FFC107", fontWeight = "normal"))
+            list(color = "#4CAF50", fontWeight = "normal")
           }
         ),
         basesQ20 = colDef(
           name = "QV20+",
-          minWidth = 50,
+          minWidth = 60,
+          html = T,
+          footer = function(values) {
+            paste0("Min: ", round(min(values), 0), "<br>", "Max: ", round(max(values), 0), "<br>", "Mean: ", round(mean(values), 0))
+            },
           style = function(value) {
             if (is.na(value)) return(list(color = "#eee"))
-            if (value < qc_thresholds$basesQ20_fail) return(list(color = "#F44336", fontWeight = "bold"))
-            if (value < qc_thresholds$basesQ20_suspect) return(list(color = "#FFC107", fontWeight = "bold"))
-            list(color = "#4CAF50", fontWeight = "bold")
+            if (value < qc_thresholds$basesQ20_fail) return(list(color = "#F44336", fontWeight = "normal"))
+            if (value < qc_thresholds$basesQ20_suspect) return(list(color = "#FFC107", fontWeight = "normal"))
+            list(color = "#4CAF50", fontWeight = "normal")
           }
         ),
         trimMeanQscore = colDef(
           name = "Qscore",
           minWidth = 50,
+          html = T,
+          footer = function(values) {
+            paste0(
+              "Min: ", round(min(values), 0), "<br>",
+              "Max: ", round(max(values), 0), "<br>", 
+              "Mean: ", round(qscore_mean(values), 0))
+          },
           style = function(value) {
             if (is.na(value)) return(list(color = "#eee"))
-            if (value < qc_thresholds$trimMeanQscore_fail) return(list(color = "#F44336", fontWeight = "bold"))
-            if (value < qc_thresholds$trimMeanQscore_suspect) return(list(color = "#FFC107", fontWeight = "bold"))
-            list(color = "#4CAF50", fontWeight = "bold")
+            if (value < qc_thresholds$trimMeanQscore_fail) return(list(color = "#F44336", fontWeight = "normal"))
+            if (value < qc_thresholds$trimMeanQscore_suspect) return(list(color = "#FFC107", fontWeight = "normal"))
+            list(color = "#4CAF50", fontWeight = "normal")
           }
         ),
         QC_flag = colDef(
           name = "QC flag",
-          minWidth = 80,
+          html = T, 
+          align = 'right',
+          minWidth = 60,
+          footer = function(value){
+            paste0(
+              '<a style="color:#4CAF50;">Pass: </a><b>', str_count(str_flatten(value), 'pass'), 
+              '</b><br><a style="color:#FFC107;">Suspect: </a><b>', str_count(str_flatten(value), 'suspect'), 
+              '</b><br><a style="color:#F44336;">Fail: </a><b>', str_count(str_flatten(value), 'fail')
+              )
+          },
           cell = function(value) {
             color <- switch(
               value,
@@ -289,8 +346,9 @@ server <- function(input, output, session) {
     #qc_thresholds$crl_window_size, qval = qc_thresholds$crl_qv_threshold
     reactable(
       data,
+      style = list(fontSize = "14px"),
       columns = list(
-        sample = colDef(minWidth = 200, vAlign = 'center'),
+        sample = colDef(minWidth = 200, vAlign = 'bottom'),
         seq = colDef(show = FALSE),
         crl_start = colDef(show = F),
         crl_end = colDef(show = F),
@@ -302,6 +360,7 @@ server <- function(input, output, session) {
           cell = function(value, index) {
             sp1 <- sparkline(
               RcppRoll::roll_mean(value, n = qc_thresholds$crl_window_size, by = 1),
+              #value,
               type = 'line', 
               lineColor = "darkred",
               width = 800, height = 50,
@@ -311,21 +370,21 @@ server <- function(input, output, session) {
               normalRangeMax = qc_thresholds$crl_qv_threshold,
               fillColor = NA, 
               lineWidth = 4,
-              disableTooltips = TRUE
+              disableTooltips = TRUE,
               #valueSpots = "{':19': 'green, '20:': 'red'}",
               #spotRadius = 3,
-              #tooltipFormat = '<span style="width: 100px; display: inline-block;"> Pos: {{x}} <br>QV: {{y}}</span>'
+              tooltipFormat = '<span style="width: 100px; display: inline-block;"> Pos: {{x}} <br>QV: {{y}}</span>'
             )
             # find out where to place the bars
-            # a <- rep(0, data[index, ]$crl_start)
-            # b <- rep(0, data[index, ]$crl_end - data[index, ]$crl_start)
-            # c <- rep(0, data[index, ]$rawSeqLen - data[index, ]$crl_end)
-            # # 
-            # sp2 <- sparkline(
-            #   c(a, 1, b, 1, c), 
-            #   type = 'bar', barColor = 'black'
-            # )
-            spk_composite(sp1, options = list(width = 800, height = 50))
+            a <- rep(0, data[index, ]$crl_start)
+            b <- rep(0, data[index, ]$crl_end - data[index, ]$crl_start)
+            c <- rep(0, data[index, ]$rawSeqLen - data[index, ]$crl_end)
+            #
+            sp2 <- sparkline(
+              c(a, 1, b, 1, c),
+              type = 'bar', barColor = 'black', zeroColor = 'grey'
+            )
+            spk_composite(sp1, sp2, options = list(width = 800, height = 50))
           },
           minWidth = 800
         )
