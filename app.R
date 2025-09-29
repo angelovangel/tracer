@@ -183,43 +183,45 @@ server <- function(input, output, session) {
       data, pagination = FALSE, searchable = TRUE, highlight = TRUE, bordered = TRUE, striped = FALSE, compact = TRUE, resizable = TRUE,
       style = list(fontSize = "14px"),
       defaultColDef = colDef(footerStyle = list(color='grey', fontWeight = 'normal')),
+      #################
       details = function(index) {
         # 1. Define a unique ID for the plotOutput for this row
         plot_output_id <- paste0("chromatogram_", index)
+        # Define a unique ID for the detail container itself
+        detail_container_id <- paste0("detail_row_", index)
         
         # 2. Render the plot inside the details row when it's opened
         local({
-          # Define the dynamic plot output using the raw data from the current row
           output[[plot_output_id]] <- renderPlot({
-            # df2()$data[[index]] provides the rawdata list required by plot_abif_chromatogram
-            raw_abif_data <- df2()[index,]$data 
+            raw_abif_data <- df2()[index, ]$data 
             
             if (length(raw_abif_data) > 0) {
               plot_abif_chromatogram(raw_abif_data)
             } else {
-              # Placeholder for missing data
               ggplot() + labs(title = "No ABIF raw data found for this sample.")
             }
           },
-          # Set the plot dimensions for a wide, scrollable view
           width = 9000, 
           height = 200
           )
         })
         
-        # 3. Return the HTML structure containing the plotOutput and scrolling container
-        htmltools::div(
-          # Increase bottom padding (e.g., to 200px) to push the table footer down 
-          # by the height of the plot plus some buffer. The plot height is 200px.
-          style = "padding: 10px; padding-top: 0px; padding-bottom: 10px;", 
+        # 3. Return the HTML structure containing the plotOutput, scrolling container, AND JavaScript
+        # Use htmltools::tagList to combine multiple elements (plot HTML and script)
+        htmltools::tagList(
           htmltools::div(
-            # Using the scrollable class defined in test.R for horizontal scrolling
-            class = "scrollable-plot-container", 
-            plotOutput(plot_output_id, width = "9000px", height = "200px")
+            id = detail_container_id, # Assign a unique ID to scroll to
+            # Keep padding-bottom to prevent table footer overlap
+            style = "padding: 10px; padding-top: 0px; padding-bottom: 10px;", 
+            htmltools::div(
+              class = "scrollable-plot-container", 
+              plotOutput(plot_output_id, width = "9000px", height = "200px")
+            )
           )
         )
       },
-      # *** END OF DETAILS MODIFICATION ***
+      #################
+      
       columns = list(
         sample = colDef(
           minWidth = 200, footer = paste0("Total ", nrow(df2()), " samples")
@@ -309,7 +311,7 @@ server <- function(input, output, session) {
   output$qc_footer <- renderUI({
   req(df())
   tags$details(
-    open = NA, # This makes the details expanded by default
+    #open = NA, # This makes the details expanded by default
     style = "margin-top: 10px;",
     tags$summary(
       style = "font-size: 13px; color: #37474f; cursor: pointer;",
