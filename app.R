@@ -12,7 +12,7 @@ source('global.R')
 
 sidebar <- sidebar(
   tags$div(
-    style = "padding: 20px;",
+    style = "padding: 10px;",
     tags$h4("Upload Sanger AB1 Files", style = "margin-bottom: 15px;"),
     fileInput(
       "ab1",
@@ -22,18 +22,19 @@ sidebar <- sidebar(
       buttonLabel = "Browse...",
       placeholder = "No files selected"
     ),
-    tags$hr(),
+    #tags$hr(),
     tags$p(
       "Select one or more .ab1 files to view summary statistics and traces.",
-      style = "font-size: 14px; color: #555;"
+      style = "color: #888; font-size: 13px;"
     ),
-    checkboxInput('shorten_names', 'Shorten names', value = F),
+    #checkboxInput('shorten_names', 'Shorten names', value = F),
     tags$br(),
-    actionButton('settings', 'QC settings'),
+    actionButton('settings', 'QC settings', style = "margin-bottom: 15px;"),
     tags$br(),
+    tags$hr(),
     tags$span(
       bsicons::bs_icon("info-circle"),
-      " Supported: Sanger AB1 files",
+      HTML(" Supported:<br>Sanger AB1 files"),
       style = "color: #888; font-size: 13px;"
     )
   )
@@ -73,36 +74,83 @@ server <- function(input, output, session) {
   
   # Show modal when QC settings button is clicked
   observeEvent(input$settings, {
-    showModal(modalDialog(size = 'l',
-                          title = "QC Settings",
-                          tags$p('CRL settings', style = "font-weight: bold; font-size: 15px;"),
-                          
-                          tags$div(
-                            style = "display: flex; gap: 16px; width: 100%; font-size: 12px; color: #1C398E;",
-                            sliderInput("crl_window_size", "CRL window size", min = 5, max = 100, value = max(5, min(100, qc_thresholds$crl_window_size)), width = "100%"),
-                            sliderInput("crl_qv_threshold", "CRL QV threshold", min = 5, max = 50, value = max(5, min(50, qc_thresholds$crl_qv_threshold)), width = "100%")
-                          ),
-                          tags$hr(style = "border-top: 1px solid #D6D3D1; margin: 16px 0;"),
-                          
-                          tags$p("Thresholds for sample QC flagging:", style = "font-weight: bold; font-size: 15px;"),
-                          tags$div(
-                            style = "width: 100%; font-size: 12px; color: #1C398E;",
-                            sliderInput("qc_crl20", "CRL thresholds (fail, suspect)", min = 0, max = 1500, value = c(qc_thresholds$crl20_fail, qc_thresholds$crl20_suspect), step = 10, width = "100%")
-                          ),
-                          tags$div(
-                            style = "width: 100%; font-size: 12px; color: #1C398E;",
-                            sliderInput("qc_basesQ20", "Q20+ thresholds (fail, suspect)", min = 0, max = 1500, value = c(qc_thresholds$basesQ20_fail, qc_thresholds$basesQ20_suspect), step = 10, width = "100%")
-                          ),
-                          tags$div(
-                            style = "width: 100%; font-size: 12px; color: #1C398E;",
-                            sliderInput("qc_trimMeanQscore", "Trim Qscore thresholds (fail, suspect)", min = 0, max = 60, value = c(qc_thresholds$trimMeanQscore_fail, qc_thresholds$trimMeanQscore_suspect), step = 1, width = "100%")
-                          ),
-                          footer = tagList(
-                            modalButton("Cancel"),
-                            actionButton("apply_qc_settings", "Apply")
-                          ),
-                          easyClose = TRUE
-    ))
+    showModal(
+      modalDialog(
+        size = 'l',
+        title = "QC Settings",
+        tags$p('CRL settings', style = "font-weight: bold; font-size: 15px;"),
+        
+        tags$div(
+          style = "display: flex; gap: 16px; width: 100%; font-size: 12px; color: #1C398E;",
+          sliderInput(
+            "crl_window_size",
+            "CRL window size",
+            min = 5,
+            max = 100,
+            value = max(5, min(100, qc_thresholds$crl_window_size)),
+            width = "100%"
+          ),
+          sliderInput(
+            "crl_qv_threshold",
+            "CRL QV threshold",
+            min = 5,
+            max = 50,
+            value = max(5, min(50, qc_thresholds$crl_qv_threshold)),
+            width = "100%"
+          )
+        ),
+        tags$hr(style = "border-top: 1px solid #D6D3D1; margin: 16px 0;"),
+        
+        tags$p("Thresholds for sample QC flagging:", style = "font-weight: bold; font-size: 15px;"),
+        tags$div(
+          style = "width: 100%; font-size: 12px; color: #1C398E;",
+          sliderInput(
+            "qc_crl20",
+            "CRL thresholds (fail, suspect)",
+            min = 0,
+            max = 1500,
+            value = c(qc_thresholds$crl20_fail, qc_thresholds$crl20_suspect),
+            step = 10,
+            width = "100%"
+          )
+        ),
+        tags$div(
+          style = "width: 100%; font-size: 12px; color: #1C398E;",
+          sliderInput(
+            "qc_basesQ20",
+            "Q20+ thresholds (fail, suspect)",
+            min = 0,
+            max = 1500,
+            value = c(
+              qc_thresholds$basesQ20_fail,
+              qc_thresholds$basesQ20_suspect
+            ),
+            step = 10,
+            width = "100%"
+          )
+        ),
+        tags$div(
+          style = "width: 100%; font-size: 12px; color: #1C398E;",
+          sliderInput(
+            "qc_trimMeanQscore",
+            "Trim Qscore thresholds (fail, suspect)",
+            min = 0,
+            max = 60,
+            value = c(
+              qc_thresholds$trimMeanQscore_fail,
+              qc_thresholds$trimMeanQscore_suspect
+            ),
+            step = 1,
+            width = "100%"
+          )
+        ),
+        footer = tagList(
+          modalButton("Cancel"),
+          actionButton("apply_qc_settings", "Apply")
+        ),
+        easyClose = TRUE
+      )
+    )
   })
   
   # Store QC thresholds in reactive values
@@ -164,7 +212,7 @@ server <- function(input, output, session) {
       select('sample', 'well', 'rawSeqLen', 'crl20', 'basesQ20', 'trimMeanQscore') %>%
       rowwise() %>%
       mutate(
-        sample = ifelse(input$shorten_names, str_trunc(sample, width = 42), sample),
+        #sample = ifelse(input$shorten_names, str_trunc(sample, width = 42), sample),
         trimMeanQscore = round(trimMeanQscore),
         QC_flag = case_when(
           crl20 < qc_thresholds$crl20_fail |
