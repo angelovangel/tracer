@@ -484,7 +484,6 @@ server <- function(input, output, session) {
     }
   )
   
-  
   #Traces
   output$table2 <- renderReactable({
     data <- df2() %>%
@@ -505,7 +504,7 @@ server <- function(input, output, session) {
           name = paste0("QV roll mean (CRL", qc_thresholds$crl_qv_threshold, ")"),
           cell = function(value, index) {
             sp1 <- sparkline(
-              RcppRoll::roll_mean(value, n = qc_thresholds$crl_window_size, by = 1),
+              round(RcppRoll::roll_mean(value, n = qc_thresholds$crl_window_size, by = 1), 0),
               type = 'line', 
               lineColor = "darkred",       # Color for values outside normalRange (i.e., > crl_qv_threshold)
               normalRangeColor = "lightgrey", # Color for values inside normalRange (i.e., <= crl_qv_threshold)
@@ -516,7 +515,8 @@ server <- function(input, output, session) {
               chartRangeMax = 70,
               fillColor = NA, 
               lineWidth = 4,
-              tooltipFormat = 'Pos: {{x}} <br>QV: {{y}}'
+              #tooltipFormatter = js_formatter
+              tooltipFormat = 'Position: <b>{{x}}</b><br>Roll mean QV: <b>{{y}}</b>'
             )
             # find out where to place the bars
             a <- rep(0, data[index, ]$crl_start)
