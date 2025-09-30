@@ -52,6 +52,15 @@ ui <- page_navbar(
           width: 100%; /* Ensures the container takes up the full width of the detail row */
           white-space: nowrap; /* Important to keep the content on one line for horizontal scrolling */
         }
+        /* START OF NEW GLOBAL CSS FOR TOOLTIP WIDTH */
+        .jqstooltip {
+          /* Use !important to override any conflicting styles from Shiny/Bootstrap/Theme */
+          width: 100px !important; 
+          min-width: 100px !important;
+          /* You might also need to ensure it doesn't try to inherit 100% width */
+          box-sizing: content-box !important;
+        }
+        /* END OF NEW GLOBAL CSS */
       ")
     )
   ),
@@ -497,20 +506,17 @@ server <- function(input, output, session) {
           cell = function(value, index) {
             sp1 <- sparkline(
               RcppRoll::roll_mean(value, n = qc_thresholds$crl_window_size, by = 1),
-              #value,
               type = 'line', 
-              lineColor = "darkred",
+              lineColor = "darkred",       # Color for values outside normalRange (i.e., > crl_qv_threshold)
+              normalRangeColor = "lightgrey", # Color for values inside normalRange (i.e., <= crl_qv_threshold)
+              normalRangeMin = 0,
+              normalRangeMax = qc_thresholds$crl_qv_threshold,
               width = 800, height = 50,
               chartRangeMin = 1,
               chartRangeMax = 70,
-              normalRangeMin = 0,
-              normalRangeMax = qc_thresholds$crl_qv_threshold,
               fillColor = NA, 
               lineWidth = 4,
-              disableTooltips = TRUE,
-              #valueSpots = "{':19': 'green, '20:': 'red'}",
-              #spotRadius = 3,
-              tooltipFormat = '<span style="width: 100px; display: inline-block;"> Pos: {{x}} <br>QV: {{y}}</span>'
+              tooltipFormat = 'Pos: {{x}} <br>QV: {{y}}'
             )
             # find out where to place the bars
             a <- rep(0, data[index, ]$crl_start)
@@ -519,7 +525,7 @@ server <- function(input, output, session) {
             #
             sp2 <- sparkline(
               c(a, 1, b, 1, c),
-              type = 'bar', barColor = 'black', zeroColor = 'grey'
+              type = 'bar', barColor = 'black', zeroColor = 'grey', disableTooltips = TRUE
             )
             spk_composite(sp1, sp2, options = list(width = 800, height = 50))
           },
