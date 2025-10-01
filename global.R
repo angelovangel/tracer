@@ -10,6 +10,7 @@
 library(RcppRoll)
 library(sangeranalyseR)
 library(dplyr)
+library(ggnewscale)
 
 # qscore_mean
 qscore_mean <- function(qvs) {
@@ -146,8 +147,9 @@ get_ab1 <- function(abfile) {
 # --- Core Plotting Function ---
 # This function encapsulates the logic for processing the ABIF file 
 # and generating the ggplot object.
-# rawdata is the 
-plot_abif_chromatogram <- function(rawdata) {
+# NOTE: This version requires the 'ggnewscale' package.
+# 
+plot_abif_chromatogram <- function(rawdata, type = 'rawsignal') {
   
   
   if (length(rawdata) >= 0) {
@@ -156,20 +158,43 @@ plot_abif_chromatogram <- function(rawdata) {
     stop('rawdata not valid')
   }
   
+  # DATA.1, DATA.2, DATA.3 and DATA.4 - raw signal
+  # DATA.9, DATA.10, DATA.11 and DATA.12 - analysed signal
+  if (type == 'rawsignal') {
+    D1 <- abif_data$data$DATA.1
+    D2 <- abif_data$data$DATA.2
+    D3 <- abif_data$data$DATA.3
+    D4 <- abif_data$data$DATA.4
+  } else {
+    D1 <- abif_data$data$DATA.9
+    D2 <- abif_data$data$DATA.10
+    D3 <- abif_data$data$DATA.11
+    D4 <- abif_data$data$DATA.12
+  }
   
   # Extract the raw signal trace data (A, C, G, T)
-  run_length <- length(abif_data$data$DATA.9)
+  run_length <- length(D1)
+  # read FWO.1 to get which base to which DATA
+  if (str_length(abif_data$data$FWO.1) == 4) {
+    fwo <- str_split(abif_data$data$FWO.1, '') %>% unlist()
+  } else {
+    fwo <- c('G', 'A', 'T', 'C')
+  }
+  
   
   traces <- data.frame(
     time = 1:run_length,
-    # read FWO.1 to get which base to which DATA
-    G = abif_data$data$DATA.9,  # A trace
-    A = abif_data$data$DATA.10, # C trace (Note: DATA.10 here refers to the C trace, 
+    
+    G = D1,  # A trace
+    A = D2, # C trace (Note: DATA.10 here refers to the C trace, 
     # despite the generic name. DATA.11 is G, DATA.12 is T.)
-    T = abif_data$data$DATA.11, # G trace
-    C = abif_data$data$DATA.12  # T trace
+    T = D3, # G trace
+    C = D4  # T trace
   )
+  colnames(traces) <- c('time', fwo)
   
+  #subsample
+  traces <- slice_sample(traces, prop = 0.5)
   # Convert data to long format for ggplot2
   traces_long <- reshape2::melt(traces, id.vars = "time", variable.name = "Base", value.name = "Intensity")
   
@@ -198,83 +223,115 @@ plot_abif_chromatogram <- function(rawdata) {
     
     base_calls$alpha_val <- pmin(base_calls$quality / max_phred, 1.0)
     # Set a minimum alpha floor (e.g., 0.3) so low-quality scores aren't invisible
-    base_calls$alpha_val <- pmax(base_calls$alpha_val, 0.3) 
+    base_calls$alpha_val <- pmax(base_calls$alpha_val, 0.3)
+    
+    # 🎨 Add a new column for conditional bar coloring 🎨
+    base_calls <- base_calls %>%
+      dplyr::mutate(quality_color = dplyr::case_when(
+        quality < 20   ~ "red",
+        quality < 25  ~ "orange",
+        TRUE          ~ "darkgrey"
+      ))
     
   } else {
     # Create an empty dataframe if no base calls or QV are found
-    base_calls <- data.frame(time = numeric(0), base = character(0), quality = numeric(0), alpha_val = numeric(0))
+    base_calls <- data.frame(time = numeric(0), base = character(0), quality = numeric(0), alpha_val = numeric(0), quality_color = character(0))
   }
   
   # Define colors for the traces
   base_colors <- c("A" = "green", "C" = "blue", "G" = "black", "T" = "red")
   
-  # Create the plot
+  # Create the base plot object
   p <- ggplot(traces_long, aes(x = time, y = Intensity, color = Base)) +
     geom_line(linewidth = 0.6, alpha = 0.5) +
     scale_color_manual(values = base_colors) +
-    labs(
-      title = "",
-      x = "Scan Number (Time)",
-      y = "Fluorescence Intensity",
-      color = "Nucleotide"
-    ) +
     theme_minimal(base_size = 12) +
     theme(
-      plot.title = element_blank(),
+      plot.title = element_blank(), 
       legend.position = "none",
-      panel.grid.minor = element_blank(), 
-      # *** START FIX FOR Y-AXIS SPACE ***
-      plot.margin = margin(t = 0, r = 0, b = 0, l = 0, unit = "pt"), 
-      axis.title.y = element_text(margin = margin(t = 0, r = 0, b = 0, l = 0, unit = "pt")),
-      axis.ticks.length.y = unit(0, "pt"), 
-      axis.title.y.left = element_text(margin = margin(t = 0, r = 0, b = 0, l = 0, unit = "pt")),
-      axis.ticks.length.x = unit(0, "pt")
-      # *** END FIX FOR Y-AXIS SPACE ***
+      #panel.grid.minor = element_blank(), 
+      panel.grid.major.y = element_blank(),
+      plot.margin = margin(t = 5, r = 5, b = 0, l = 0, unit = "pt"), 
+      axis.title.x = element_blank(),
+      axis.title.y = element_text(margin = margin(t = 0, r = 5, b = 0, l = 0, unit = "pt"))
     )
   
-  # Add base call labels (with alpha) and Quality Value scores (as solid text)
-  if (nrow(base_calls) > 0) {
+  # Add base call layers and modify axes IF base calls exist
+  if ((nrow(base_calls) > 0) & (type != 'rawsignal')) {
     # Determine maximum intensity for positioning the labels
     max_intensity <- max(traces_long$Intensity)
     
-    # Position for the base letter (A, C, G, T) - higher
-    base_label_y_pos <- max_intensity * 1
+    # Position for the base letter (A, C, G, T)
+    base_label_y_pos <- max_intensity * 1.2
+    # Define the y-range for the quality bars
+    qv_bar_bottom_y_pos <- max_intensity * 1.0
+    qv_bar_region_height <- max_intensity * 0.15
     
-    # Position for the Quality Value score (e.g., 40, 55, 12) - lower
-    qv_label_y_pos <- max_intensity * 0.95 
+    # Add basecall index column for the new axis labels
+    base_calls$index <- 1:nrow(base_calls)
     
-    # 1. Add base call labels (A, C, G, T) with ALPHA MAPPING
-    p <- p + geom_text(
-      data = base_calls,
-      aes(x = time, y = base_label_y_pos, label = base), #alpha = alpha_val), 
-      # Use the base color for the text labels
-      color = base_colors[base_calls$base], 
-      size = 3.5,
-      family = "mono",
-      vjust = 0, 
-      inherit.aes = FALSE 
-    ) +
-      
-      # 2. Add Quality Value scores (e.g., 40) - SOLID BLACK TEXT
+    # Determine axis breaks and labels for the basecall index
+    # Aim for about 20 breaks along the sequence length
+    #break_interval <- max(1, round(nrow(base_calls) / 20))
+    break_indices <- seq(0, nrow(base_calls), by = 50)
+    
+    
+    axis_breaks <- base_calls$time[break_indices]
+    axis_labels <- base_calls$index[break_indices]
+    
+    p <- p + 
+      # Add base call labels (A, C, G, T)
       geom_text(
         data = base_calls,
-        # Convert quality score to character for the label
-        aes(x = time, y = qv_label_y_pos, label = as.character(quality), alpha = alpha_val), 
-        color = "black", # Solid black color
-        size = 1.3,      # Smaller font size
-        family = "sans", 
+        aes(x = time, y = base_label_y_pos, label = base), 
+        color = base_colors[base_calls$base], 
+        size = 3.5,
+        family = "mono",
         vjust = 0, 
         inherit.aes = FALSE 
       ) +
       
-      # Crucial: Interpret alpha_val directly as the alpha level
-      scale_alpha_identity() + 
-      # Expand y-axis limits to ensure both sets of labels are visible
-      coord_cartesian(ylim = c(0, max_intensity * 1.25)) +
-      scale_x_continuous(expand = expansion(mult = c(0, 0.02)))
+      # Start a new color scale for the quality bars
+      ggnewscale::new_scale_color() +
+      
+      # Add Quality Value bars
+      geom_linerange(
+        data = base_calls,
+        aes(x = time, 
+            ymin = qv_bar_bottom_y_pos, 
+            ymax = qv_bar_bottom_y_pos + (quality / max_phred * qv_bar_region_height),
+            #alpha = alpha_val,
+            color = quality_color
+        ), 
+        linewidth = 1.3,
+        inherit.aes = FALSE 
+      ) +
+      
+      # Define the new scales
+      scale_color_identity() +
+      
+      # Expand y-axis limits and set new x-axis labs and breaks
+      coord_cartesian(ylim = c(0, max_intensity * 1.3)) +
+      labs(
+        x = "Basecall Index",
+        y = "Fluorescence Intensity",
+        color = "Nucleotide"
+      ) +
+      scale_x_continuous(
+        breaks = axis_breaks,
+        labels = axis_labels,
+        expand = expansion(mult = c(0, 0.02))
+      )
     
   } else {
-    p <- p + scale_x_continuous(expand = expansion(mult = c(0, 0.02)))
+    # Fallback for plots with no base calls: use original time axis
+    p <- p + 
+      labs(
+        x = "Scan Number (Time)",
+        y = "Fluorescence Intensity",
+        color = "Nucleotide"
+      ) +
+      scale_x_continuous(expand = expansion(mult = c(0, 0.02)))
   }
   
   return(p)

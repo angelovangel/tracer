@@ -5,7 +5,7 @@ library(reactable)
 library(bsicons)
 library(purrr)
 library(sparkline)
-library(writexl) # <--- ADD THIS LIBRARY for Excel download
+library(writexl) # 
 #library(sangerseqR)
 
 source('global.R')
@@ -64,17 +64,20 @@ ui <- page_navbar(
       ")
     )
   ),
-  nav_panel('QC flags',
+  nav_panel('QC-basecall',
             reactableOutput('table1'),
             # Use uiOutput to conditionally render the download button and footer
             uiOutput('qc_controls_and_footer') 
   ),
+  nav_panel('QC-raw signal',
+            reactableOutput('table2')
+  ),
   nav_panel('CRL plots',
-            reactableOutput('table2')        
+            reactableOutput('table3')        
   ),
   #nav_panel('QC Summary'),
   nav_panel('Run info', 
-            reactableOutput('table3')
+            reactableOutput('table4')
   ),
   theme = bs_theme(bootswatch = "simplex")
 )
@@ -236,144 +239,153 @@ server <- function(input, output, session) {
       ungroup() # Convert back to a standard data frame
   })
   
-  # QC flags 
-  output$table1 <- renderReactable({
-    data <- df_table1_data() # Use the new reactive data source
-    
-    reactable(
-      data, pagination = FALSE, searchable = TRUE, highlight = TRUE, bordered = TRUE, striped = FALSE, compact = TRUE, resizable = TRUE,
-      style = list(fontSize = "14px"),
-      defaultColDef = colDef(footerStyle = list(color='grey', fontWeight = 'normal')),
-      #################
-      details = function(index) {
-        # 1. Define a unique ID for the plotOutput for this row
-        plot_output_id <- paste0("chromatogram_", index)
-        # Define a unique ID for the detail container itself
-        detail_container_id <- paste0("detail_row_", index)
-        
-        # 2. Render the plot inside the details row when it's opened
-        local({
-          output[[plot_output_id]] <- renderPlot({
-            raw_abif_data <- df2()[index, ]$data 
-            
-            if (length(raw_abif_data) > 0) {
-              plot_abif_chromatogram(raw_abif_data)
-            } else {
-              ggplot() + labs(title = "No ABIF raw data found for this sample.")
-            }
-          },
-          width = 9000, 
-          height = 200
-          )
-        })
-        
-        # 3. Return the HTML structure containing the plotOutput, scrolling container, AND JavaScript
-        # Use htmltools::tagList to combine multiple elements (plot HTML and script)
-        htmltools::tagList(
-          htmltools::div(
-            id = detail_container_id, # Assign a unique ID to scroll to
-            # Keep padding-bottom to prevent table footer overlap
-            style = "padding: 10px; padding-top: 0px; padding-bottom: 10px;", 
+  # this function renders the reactable shown in tab1 and tab2
+  # takes some args and returns a reactable so can be called in renderReactable()
+  make_qc_table <- function(fdata, ftype = 'rawsignal', fwidth, fheight) {
+    #reactive({
+      reactable(
+        fdata, 
+        pagination = FALSE, searchable = TRUE, highlight = TRUE, bordered = TRUE, striped = FALSE, compact = TRUE, resizable = TRUE,
+        style = list(fontSize = "14px"),
+        defaultColDef = colDef(footerStyle = list(color='grey', fontWeight = 'normal')),
+        #################
+        details = function(index) {
+          # 1. Define a unique ID for the plotOutput for this row
+          plot_output_id <- paste0(ftype, index)
+          # Define a unique ID for the detail container itself
+          detail_container_id <- paste0("detail_row_", ftype, index)
+          
+          # 2. Render the plot inside the details row when it's opened
+          local({
+            output[[plot_output_id]] <- renderPlot({
+              raw_abif_data <- df2()[index, ]$data 
+              
+              if (length(raw_abif_data) > 0) {
+                plot_abif_chromatogram(raw_abif_data, type = ftype)
+              } else {
+                ggplot() + labs(title = "No ABIF raw data found for this sample.")
+              }
+            },
+            width = fwidth, 
+            height = fheight
+            )
+          })
+          
+          # 3. Return the HTML structure containing the plotOutput, scrolling container, AND JavaScript
+          # Use htmltools::tagList to combine multiple elements (plot HTML and script)
+          htmltools::tagList(
             htmltools::div(
-              class = "scrollable-plot-container", 
-              plotOutput(plot_output_id, width = "9000px", height = "200px")
-            )
-          )
-        )
-      },
-      #################
-      # ADD THIS rowStyle TO DRAW A LINE ABOVE THE FOOTER
-      rowStyle = function(index) {
-        if (index == nrow(data)) {
-          list(borderBottom = "1px solid grey") # 
-        }
-      },
-      #################
-      columns = list(
-        sample = colDef(
-          minWidth = 200, 
-          footer = paste0("Total ", nrow(df2()), " samples")
-        ),
-        rawSeqLen = colDef(minWidth = 50),
-        well = colDef(minWidth = 30, show = FALSE),
-        crl20 = colDef(
-          name = paste0("CRL",  qc_thresholds$crl_qv_threshold),
-          minWidth = 60,
-          html = T,
-          footer = function(values) {
-            paste0("Min: ", round(min(values), 0), "<br>", "Max: ", round(max(values), 0), "<br>", "Mean: ", round(mean(values), 0))
-          },
-          style = function(value) {
-            if (is.na(value)) return(list(color = "#eee"))
-            if (value < qc_thresholds$crl20_fail) return(list(color = "#F44336", fontWeight = "normal"))
-            if (value < qc_thresholds$crl20_suspect) return(list(color = "#FFC107", fontWeight = "normal"))
-            list(color = "#4CAF50", fontWeight = "normal")
-          }
-        ),
-        basesQ20 = colDef(
-          name = "QV20+",
-          minWidth = 60,
-          html = T,
-          footer = function(values) {
-            paste0("Min: ", round(min(values), 0), "<br>", "Max: ", round(max(values), 0), "<br>", "Mean: ", round(mean(values), 0))
-          },
-          style = function(value) {
-            if (is.na(value)) return(list(color = "#eee"))
-            if (value < qc_thresholds$basesQ20_fail) return(list(color = "#F44336", fontWeight = "normal"))
-            if (value < qc_thresholds$basesQ20_suspect) return(list(color = "#FFC107", fontWeight = "normal"))
-            list(color = "#4CAF50", fontWeight = "normal")
-          }
-        ),
-        trimMeanQscore = colDef(
-          name = "Qscore",
-          minWidth = 50,
-          html = T,
-          footer = function(values) {
-            paste0(
-              "Min: ", round(min(values), 0), "<br>",
-              "Max: ", round(max(values), 0), "<br>", 
-              "Mean: ", round(qscore_mean(values), 0))
-          },
-          style = function(value) {
-            if (is.na(value)) return(list(color = "#eee"))
-            if (value < qc_thresholds$trimMeanQscore_fail) return(list(color = "#F44336", fontWeight = "normal"))
-            if (value < qc_thresholds$trimMeanQscore_suspect) return(list(color = "#FFC107", fontWeight = "normal"))
-            list(color = "#4CAF50", fontWeight = "normal")
-          }
-        ),
-        QC_flag = colDef(
-          name = "QC flag",
-          html = T, 
-          align = 'right',
-          minWidth = 60,
-          footer = function(value){
-            paste0(
-              '<a style="color:#4CAF50;">Pass: </a><b>', str_count(str_flatten(value), 'pass'), 
-              '</b><br><a style="color:#FFC107;">Suspect: </a><b>', str_count(str_flatten(value), 'suspect'), 
-              '</b><br><a style="color:#F44336;">Fail: </a><b>', str_count(str_flatten(value), 'fail')
-            )
-          },
-          cell = function(value) {
-            color <- switch(
-              value,
-              "fail" = "#F44336",
-              "suspect" = "#FFC107",
-              "pass" = "#4CAF50",
-              "#eee"
-            )
-            htmltools::tagList(
-              value,
-              htmltools::tags$span(
-                style = paste0(
-                  "display: inline-block; width: 14px; height: 14px; border-radius: 50%; background:", color, "; margin-left: 8px; margin-right: 2px; vertical-align: middle;"
-                ),
-                ""
+              id = detail_container_id, # Assign a unique ID to scroll to
+              # Keep padding-bottom to prevent table footer overlap
+              style = "padding: 10px; padding-top: 0px; padding-bottom: 10px;", 
+              htmltools::div(
+                class = "scrollable-plot-container", 
+                plotOutput(plot_output_id, width = paste0(fwidth, "px"), height = paste0(fheight, "px"))
               )
             )
+          )
+        },
+        #################
+        # ADD THIS rowStyle TO DRAW A LINE ABOVE THE FOOTER
+        rowStyle = function(index) {
+          if (index == nrow(fdata)) {
+            list(borderBottom = "1px solid grey") # 
           }
+        },
+        #################
+        columns = list(
+          sample = colDef(
+            minWidth = 200, 
+            footer = paste0("Total ", nrow(df2()), " samples")
+          ),
+          rawSeqLen = colDef(minWidth = 50),
+          well = colDef(minWidth = 30, show = FALSE),
+          crl20 = colDef(
+            name = paste0("CRL",  qc_thresholds$crl_qv_threshold),
+            minWidth = 60,
+            html = T,
+            footer = function(values) {
+              paste0("Min: ", round(min(values), 0), "<br>", "Max: ", round(max(values), 0), "<br>", "Mean: ", round(mean(values), 0))
+            },
+            style = function(value) {
+              if (is.na(value)) return(list(color = "#eee"))
+              if (value < qc_thresholds$crl20_fail) return(list(color = "#F44336", fontWeight = "normal"))
+              if (value < qc_thresholds$crl20_suspect) return(list(color = "#FFC107", fontWeight = "normal"))
+              list(color = "#4CAF50", fontWeight = "normal")
+            }
+          ),
+          basesQ20 = colDef(
+            name = "QV20+",
+            minWidth = 60,
+            html = T,
+            footer = function(values) {
+              paste0("Min: ", round(min(values), 0), "<br>", "Max: ", round(max(values), 0), "<br>", "Mean: ", round(mean(values), 0))
+            },
+            style = function(value) {
+              if (is.na(value)) return(list(color = "#eee"))
+              if (value < qc_thresholds$basesQ20_fail) return(list(color = "#F44336", fontWeight = "normal"))
+              if (value < qc_thresholds$basesQ20_suspect) return(list(color = "#FFC107", fontWeight = "normal"))
+              list(color = "#4CAF50", fontWeight = "normal")
+            }
+          ),
+          trimMeanQscore = colDef(
+            name = "Qscore",
+            minWidth = 50,
+            html = T,
+            footer = function(values) {
+              paste0(
+                "Min: ", round(min(values), 0), "<br>",
+                "Max: ", round(max(values), 0), "<br>", 
+                "Mean: ", round(qscore_mean(values), 0))
+            },
+            style = function(value) {
+              if (is.na(value)) return(list(color = "#eee"))
+              if (value < qc_thresholds$trimMeanQscore_fail) return(list(color = "#F44336", fontWeight = "normal"))
+              if (value < qc_thresholds$trimMeanQscore_suspect) return(list(color = "#FFC107", fontWeight = "normal"))
+              list(color = "#4CAF50", fontWeight = "normal")
+            }
+          ),
+          QC_flag = colDef(
+            name = "QC flag",
+            html = T, 
+            align = 'right',
+            minWidth = 60,
+            footer = function(value){
+              paste0(
+                '<a style="color:#4CAF50;">Pass: </a><b>', str_count(str_flatten(value), 'pass'), 
+                '</b><br><a style="color:#FFC107;">Suspect: </a><b>', str_count(str_flatten(value), 'suspect'), 
+                '</b><br><a style="color:#F44336;">Fail: </a><b>', str_count(str_flatten(value), 'fail')
+              )
+            },
+            cell = function(value) {
+              color <- switch(
+                value,
+                "fail" = "#F44336",
+                "suspect" = "#FFC107",
+                "pass" = "#4CAF50",
+                "#eee"
+              )
+              htmltools::tagList(
+                value,
+                htmltools::tags$span(
+                  style = paste0(
+                    "display: inline-block; width: 14px; height: 14px; border-radius: 50%; background:", color, "; margin-left: 8px; margin-right: 2px; vertical-align: middle;"
+                  ),
+                  ""
+                )
+              )
+            }
+          )
         )
-      )
-    ) 
+      ) 
+    #})
+  }
+  
+  
+  # QC flags 
+  output$table1 <- renderReactable({
+    make_qc_table(fdata = df_table1_data(), ftype = 'basecall', fwidth = 10000, fheight = 200)
+
   })
   
   # Conditional rendering of the download button and the footer
@@ -484,8 +496,13 @@ server <- function(input, output, session) {
     }
   )
   
-  #Traces
+  # Raw signal
   output$table2 <- renderReactable({
+    make_qc_table(fdata = df_table1_data(), ftype = 'rawsignal', fwidth = 1200, fheight = 200)
+  })
+  
+  #CRL Traces
+  output$table3 <- renderReactable({
     data <- df2() %>%
       select('sample', 'seq', 'qscores', 'crl20', 'crl_start', 'crl_end', 'rawSeqLen')
     #qc_thresholds$crl_window_size, qval = qc_thresholds$crl_qv_threshold
@@ -540,15 +557,22 @@ server <- function(input, output, session) {
   })
   
   # Run info
-  output$table3 <- renderReactable({
+  output$table4 <- renderReactable({
     data <- df() %>%
-      select('sample', 'rundate', 'instrument', 'machine', 'capillary', 'analysis_prot', 'data_coll_modfile', 'dyeset_name', 'polymer_expdate')
+      select('sample', 'rundate', 'instrument', 'machine', 'well', 'capillary', 'analysis_prot', 'data_coll_modfile', 'dyeset_name')
     reactable(
       data, 
       pagination = FALSE, searchable = TRUE, highlight = TRUE, 
       bordered = TRUE, striped = FALSE, compact = TRUE,
       wrap = FALSE, resizable = TRUE,
-      style = list(fontSize = "14px") # Decrease font size
+      style = list(fontSize = "14px"),
+      columns = list(
+        sample = colDef(minWidth = 200),
+        rundate = colDef(minWidth = 70),
+        instrument = colDef(minWidth = 70),
+        well = colDef(minWidth = 50),
+        capillary = colDef(minWidth = 50)
+      )
     )
     
   })
