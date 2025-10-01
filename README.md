@@ -1,1 +1,5 @@
-https://g.co/gemini/share/791608f12d2e
+# Tracer - QC viewer for Sanger sequencing files
+
+Try it on Digital Ocean app platform here:
+
+https://tracer-vwesl.ondigitalocean.app/
