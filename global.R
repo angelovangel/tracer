@@ -172,8 +172,11 @@ plot_abif_chromatogram <- function(rawdata, type = 'rawsignal') {
     D4 <- abif_data$data$DATA.12
   }
   
-  # Extract the raw signal trace data (A, C, G, T)
+  # Set a target max number of points for visualization
+  MAX_POINTS_FOR_PLOT <- ifelse(type == 'rawsignal', 3000, 10000) 
   run_length <- length(D1)
+  
+  # Extract the raw signal trace data (A, C, G, T)
   # read FWO.1 to get which base to which DATA
   if (str_length(abif_data$data$FWO.1) == 4) {
     fwo <- str_split(abif_data$data$FWO.1, '') %>% unlist()
@@ -193,8 +196,14 @@ plot_abif_chromatogram <- function(rawdata, type = 'rawsignal') {
   )
   colnames(traces) <- c('time', fwo)
   
-  #subsample
-  traces <- slice_sample(traces, prop = 0.5)
+  # --- Optimized Subsampling Logic ---
+  if (run_length > MAX_POINTS_FOR_PLOT) {
+    # Calculate step size to reduce the trace to approx MAX_POINTS_FOR_PLOT
+    step_size <- ceiling(run_length / MAX_POINTS_FOR_PLOT)
+    traces <- traces[seq(1, run_length, by = step_size), ]
+  }
+  # -----------------------------------
+  
   # Convert data to long format for ggplot2
   traces_long <- reshape2::melt(traces, id.vars = "time", variable.name = "Base", value.name = "Intensity")
   
@@ -243,6 +252,7 @@ plot_abif_chromatogram <- function(rawdata, type = 'rawsignal') {
   
   # Create the base plot object
   p <- ggplot(traces_long, aes(x = time, y = Intensity, color = Base)) +
+    #ggrastr::geom_point_rast(type = 'l', linewidth = 0.6, alpha = 0.5) +
     geom_line(linewidth = 0.6, alpha = 0.5) +
     scale_color_manual(values = base_colors) +
     theme_minimal(base_size = 12) +
@@ -295,6 +305,7 @@ plot_abif_chromatogram <- function(rawdata, type = 'rawsignal') {
       ggnewscale::new_scale_color() +
       
       # Add Quality Value bars
+      #ggrastr::geom_linerange_rast(
       geom_linerange(
         data = base_calls,
         aes(x = time, 

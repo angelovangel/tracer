@@ -1,4 +1,4 @@
-# Tracer - QC viewer for Sanger sequencing files
+## Tracer - QC viewer for Sanger sequencing files
 
 Try it on Digital Ocean app platform here:
 

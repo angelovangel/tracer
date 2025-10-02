@@ -6,6 +6,7 @@ library(bsicons)
 library(purrr)
 library(sparkline)
 library(writexl) # 
+#library(ggrastr)
 #library(sangerseqR)
 
 source('global.R')
