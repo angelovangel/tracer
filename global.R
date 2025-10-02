@@ -173,7 +173,7 @@ plot_abif_chromatogram <- function(rawdata, type = 'rawsignal') {
   }
   
   # Set a target max number of points for visualization
-  MAX_POINTS_FOR_PLOT <- ifelse(type == 'rawsignal', 3000, 7000) 
+  MAX_POINTS_FOR_PLOT <- ifelse(type == 'rawsignal', 3000, 6000) 
   run_length <- length(D1)
   
   # Extract the raw signal trace data (A, C, G, T)

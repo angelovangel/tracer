@@ -532,7 +532,7 @@ server <- function(input, output, session) {
               chartRangeMin = 1,
               chartRangeMax = 70,
               fillColor = NA, 
-              lineWidth = 4,
+              lineWidth = 3,
               #tooltipFormatter = js_formatter
               tooltipFormat = 'Position: <b>{{x}}</b><br>Roll mean QV: <b>{{y}}</b>'
             )
@@ -560,7 +560,7 @@ server <- function(input, output, session) {
   # Run info
   output$table4 <- renderReactable({
     data <- df() %>%
-      select('sample', 'rundate', 'instrument', 'machine', 'well', 'capillary', 'analysis_prot', 'data_coll_modfile', 'dyeset_name')
+      select('sample', 'rundate', 'instrument', 'machine', 'well', 'capillary', 'gel_type', 'analysis_prot', 'data_coll_modfile', 'dyeset_name')
     reactable(
       data, 
       pagination = FALSE, searchable = TRUE, highlight = TRUE, 
