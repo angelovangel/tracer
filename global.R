@@ -226,7 +226,7 @@ plot_abif_chromatogram <- function(rawdata, type = 'rawsignal') {
     # Filter out base calls that are outside the trace length
     base_calls <- base_calls[base_calls$time <= run_length, ]
     
-    # 🌟 QV to Alpha Mapping Logic 🌟
+    # 検 QV to Alpha Mapping Logic 検
     # Scale the quality score (e.g., 0-60) to an alpha value (0-1).
     max_phred <- 60 
     
@@ -234,7 +234,7 @@ plot_abif_chromatogram <- function(rawdata, type = 'rawsignal') {
     # Set a minimum alpha floor (e.g., 0.3) so low-quality scores aren't invisible
     base_calls$alpha_val <- pmax(base_calls$alpha_val, 0.3)
     
-    # 🎨 Add a new column for conditional bar coloring 🎨
+    # 耳 Add a new column for conditional bar coloring 耳
     base_calls <- base_calls %>%
       dplyr::mutate(quality_color = dplyr::case_when(
         quality < 20   ~ "red",
@@ -247,15 +247,15 @@ plot_abif_chromatogram <- function(rawdata, type = 'rawsignal') {
     base_calls <- data.frame(time = numeric(0), base = character(0), quality = numeric(0), alpha_val = numeric(0), quality_color = character(0))
   }
   
-  # Define colors for the traces
-  base_colors <- c("A" = "green", "C" = "blue", "G" = "black", "T" = "red")
+  # Define HIGH-VISIBILITY base colors (A=Green, C=Blue, G=Orange, T=Red)
+  base_colors <- c("A" = "#00D100", "C" = "#0000FF", "G" = "black", "T" = "#FF0000") # Brighter versions
   
   # Create the base plot object
   p <- ggplot(traces_long, aes(x = time, y = Intensity, color = Base)) +
     #ggrastr::geom_point_rast(type = 'l', linewidth = 0.6, alpha = 0.5) +
     geom_line(linewidth = 0.6, alpha = 0.5) +
     scale_color_manual(values = base_colors) +
-    theme_minimal(base_size = 12) +
+    theme_minimal(base_size = 14) + # Increased base_size for overall text
     theme(
       plot.title = element_blank(), 
       legend.position = "none",
@@ -263,7 +263,9 @@ plot_abif_chromatogram <- function(rawdata, type = 'rawsignal') {
       panel.grid.major.y = element_blank(),
       plot.margin = margin(t = 5, r = 5, b = 0, l = 0, unit = "pt"), 
       axis.title.x = element_blank(),
-      axis.title.y = element_text(margin = margin(t = 0, r = 5, b = 0, l = 0, unit = "pt"))
+      axis.title.y = element_text(margin = margin(t = 0, r = 5, b = 0, l = 0, unit = "pt")),
+      axis.ticks.x = element_line(), # Ensure tick lines are visible
+      axis.ticks.length = unit(0.3, "cm") # Increased tick length
     )
   
   # Add base call layers and modify axes IF base calls exist
@@ -281,13 +283,16 @@ plot_abif_chromatogram <- function(rawdata, type = 'rawsignal') {
     base_calls$index <- 1:nrow(base_calls)
     
     # Determine axis breaks and labels for the basecall index
-    # Aim for about 20 breaks along the sequence length
-    #break_interval <- max(1, round(nrow(base_calls) / 20))
-    break_indices <- seq(0, nrow(base_calls), by = 50)
     
+    # --- Major Breaks (Labels) every 50 bases ---
+    major_break_indices <- seq(0, nrow(base_calls), by = 50)
+    axis_breaks <- base_calls$time[major_break_indices]
+    axis_labels <- base_calls$index[major_break_indices]
     
-    axis_breaks <- base_calls$time[break_indices]
-    axis_labels <- base_calls$index[break_indices]
+    # --- Minor Breaks (Ticks) every 10 bases ---
+    minor_break_indices <- seq(0, nrow(base_calls), by = 10)
+    minor_breaks <- base_calls$time[minor_break_indices]
+    # -------------------------------------------
     
     p <- p + 
       # Add base call labels (A, C, G, T)
@@ -295,8 +300,8 @@ plot_abif_chromatogram <- function(rawdata, type = 'rawsignal') {
         data = base_calls,
         aes(x = time, y = base_label_y_pos, label = base), 
         color = base_colors[base_calls$base], 
-        size = 3.5,
-        family = "mono",
+        size = 4, #
+        family = "mono", fontface = "bold",
         vjust = 0, 
         inherit.aes = FALSE 
       ) +
@@ -331,6 +336,7 @@ plot_abif_chromatogram <- function(rawdata, type = 'rawsignal') {
       scale_x_continuous(
         breaks = axis_breaks,
         labels = axis_labels,
+        minor_breaks = minor_breaks,
         expand = expansion(mult = c(0, 0.02))
       )
     
@@ -347,3 +353,4 @@ plot_abif_chromatogram <- function(rawdata, type = 'rawsignal') {
   
   return(p)
 }
+

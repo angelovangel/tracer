@@ -249,6 +249,7 @@ server <- function(input, output, session) {
         pagination = FALSE, searchable = TRUE, highlight = TRUE, bordered = TRUE, striped = FALSE, compact = TRUE, resizable = TRUE,
         style = list(fontSize = "14px"),
         defaultColDef = colDef(footerStyle = list(color='grey', fontWeight = 'normal')),
+        onClick = "expand", # Expand row details on click
         #################
         details = function(index) {
           # 1. Define a unique ID for the plotOutput for this row
@@ -385,8 +386,7 @@ server <- function(input, output, session) {
   
   # QC flags 
   output$table1 <- renderReactable({
-    make_qc_table(fdata = df_table1_data(), ftype = 'basecall', fwidth = 10000, fheight = 200)
-
+    make_qc_table(fdata = df_table1_data(), ftype = 'basecall', fwidth = 12000, fheight = 200)
   })
   
   # Conditional rendering of the download button and the footer
