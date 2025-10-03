@@ -36,12 +36,15 @@ format_bases_as_html <- function(bases, qscores, qscore_type = "numeric") {
   # 1. Define color mapping function based on Phred scores
   # Q >= 30: Green, Q >= 20: Yellow/Amber, Q < 20: Red/Pink
   get_color <- function(q) {
-    if (q >= 30) {
-      return("#4CAF50") # High Quality (Green)
-    } else if (q >= 20) {
-      return("#FFC107") # Medium Quality (Yellow/Amber)
+    if (q >= 20) {
+      #return("#4CAF50") # High Quality (Green)
+      return("rgba(76, 175, 80, 0.6);")
+    } else if (q >= 15) {
+      #return("#FFC107") # Medium Quality (Yellow/Amber)
+      return("rgba(255, 193, 7, 0.6);")
     } else {
-      return("#F44336") # Low Quality (Red/Pink)
+      #return("#F44336") # Low Quality (Red/Pink)
+      return("rgba(244, 67, 54, 0.6);")
     }
   }
   
@@ -67,7 +70,7 @@ format_bases_as_html <- function(bases, qscores, qscore_type = "numeric") {
   html_spans <- paste0(
     '<span class="base-tooltip" data-tooltip="', tooltip_content, 
     '" style="background-color:', background_colors, 
-    '; color: #000000; padding: 1px 0px; margin: 0; line-height: 1.5; font-family: monospace; font-weight: bold; font-size: 1.0em;">', 
+    '; color: #000000; padding: 1px 0px; margin: 0; line-height: 1.5; font-family: monospace; font-weight: lighter; font-size: 1.0em;">', 
     bases, 
     '</span>'
   )
