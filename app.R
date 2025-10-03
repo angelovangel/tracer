@@ -10,6 +10,7 @@ library(writexl) #
 #library(sangerseqR)
 
 source('global.R')
+source('bases_as_html.R')
 
 sidebar <- sidebar(
   tags$div(
@@ -65,13 +66,16 @@ ui <- page_navbar(
       ")
     )
   ),
-  nav_panel('QC-basecall',
+  nav_panel('Basecall',
             reactableOutput('table1'),
             # Use uiOutput to conditionally render the download button and footer
             uiOutput('qc_controls_and_footer') 
   ),
-  nav_panel('QC-raw signal',
+  nav_panel('Raw signal',
             reactableOutput('table2')
+  ),
+  nav_panel('Sequence', 
+            reactableOutput('html_sequence')
   ),
   nav_panel('CRL plots',
             reactableOutput('table3')        
@@ -240,6 +244,9 @@ server <- function(input, output, session) {
       ungroup() # Convert back to a standard data frame
   })
   
+  # details_plot - use to generate the chromatogram and raw signal plots in details
+  # returns the HTML structure containing the plotOutput, scrolling container
+  
   # this function renders the reactable shown in tab1 and tab2
   # takes some args and returns a reactable so can be called in renderReactable()
   make_qc_table <- function(fdata, ftype = 'rawsignal', fwidth, fheight) {
@@ -250,6 +257,7 @@ server <- function(input, output, session) {
         style = list(fontSize = "14px"),
         defaultColDef = colDef(footerStyle = list(color='grey', fontWeight = 'normal')),
         onClick = "expand", # Expand row details on click
+        
         #################
         details = function(index) {
           # 1. Define a unique ID for the plotOutput for this row
@@ -275,7 +283,7 @@ server <- function(input, output, session) {
           
           # 3. Return the HTML structure containing the plotOutput, scrolling container, AND JavaScript
           # Use htmltools::tagList to combine multiple elements (plot HTML and script)
-          htmltools::tagList(
+          #htmltools::tagList(
             htmltools::div(
               id = detail_container_id, # Assign a unique ID to scroll to
               # Keep padding-bottom to prevent table footer overlap
@@ -285,7 +293,7 @@ server <- function(input, output, session) {
                 plotOutput(plot_output_id, width = paste0(fwidth, "px"), height = paste0(fheight, "px"))
               )
             )
-          )
+          #)
         },
         #################
         # ADD THIS rowStyle TO DRAW A LINE ABOVE THE FOOTER
@@ -500,6 +508,29 @@ server <- function(input, output, session) {
   # Raw signal
   output$table2 <- renderReactable({
     make_qc_table(fdata = df_table1_data(), ftype = 'rawsignal', fwidth = 1200, fheight = 200)
+  })
+  
+  output$html_sequence <- renderReactable({
+    data <- df2() %>%
+      select('sample', 'data')
+    reactable(
+      data, 
+      style = list(fontSize = "13px"),
+      columns = list(data = colDef(show = F)),
+      details = colDef(
+        name = "",
+        details = function(index){
+          
+          bases <- data[index,]$data$data$PBAS.1 %>% str_split('') %>% unlist
+          qscores <- data[index,]$data$data$PCON.1
+          
+          content <-format_bases_as_html(bases, qscores)
+          content
+        },
+        html = TRUE
+      )
+    )
+      
   })
   
   #CRL Traces
