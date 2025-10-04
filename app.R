@@ -84,7 +84,6 @@ ui <- page_navbar(
 )
 
 server <- function(input, output, session) {
-  plan(multisession, workers = max(1, parallel::detectCores() - 1))
   
   # Show modal when QC settings button is clicked
   observeEvent(input$settings, {
