@@ -225,7 +225,7 @@ server <- function(input, output, session) {
   df_table1_data <- reactive({
     req(df2()) # Ensure data exists
     df2() %>%
-      select('sample', 'well', 'rawSeqLen', 'crl20', 'basesQ20', 'trimMeanQscore', 'data') %>%
+      select('sample', 'well', 'rawSeqLen', 'crl20', 'basesQ20', 'trimMeanQscore', 'data', 'crl_start', 'crl_end') %>%
       rowwise() %>%
       mutate(
         #sample = ifelse(input$shorten_names, str_trunc(sample, width = 42), sample),
@@ -581,7 +581,7 @@ server <- function(input, output, session) {
         details = function(index){
           bases <- data[index,]$data$data$PBAS.1 %>% str_split('') %>% unlist
           qscores <- data[index,]$data$data$PCON.1
-          content <-format_bases_as_html(bases, qscores)
+          content <-format_bases_as_html(bases, qscores, crl_start = data$crl_start[index], crl_end = data$crl_end[index])
           content
         },
         html = TRUE

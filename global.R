@@ -367,7 +367,10 @@ plot_abif_chromatogram <- function(rawdata, type = 'rawsignal') {
 #              - "fastq_ascii": qscores is a vector of single-character ASCII codes.
 #
 # Returns: A single HTML string.
-format_bases_as_html <- function(bases, qscores, qscore_type = "numeric") {
+format_bases_as_html <- function(bases, qscores, qscore_type = "numeric", crl_start, crl_end) {
+  if ( any(!is.numeric(crl_start), !is.numeric(crl_end)) ) {
+    return("Error: CRL start and end not numeric!")
+  }
   
   if (length(bases) != length(qscores)) {
     # If the lengths don't match, return an error message
@@ -390,23 +393,31 @@ format_bases_as_html <- function(bases, qscores, qscore_type = "numeric") {
   }
   
   # 1. Define color mapping function based on Phred scores
-  # Q >= 30: Green, Q >= 20: Yellow/Amber, Q < 20: Red/Pink
-  get_color <- function(q) {
+  # Q >= 20: Green, Q >= 15: Yellow/Amber, Q < 15: Red/Pink
+  # transparency is passed as arg in order to be able to vary it
+  get_color <- function(q, opacity = 0.6) {
     if (q >= 20) {
       #return("#4CAF50") # High Quality (Green)
-      return("rgba(76, 175, 80, 0.6);")
+      return(paste0("rgba(76, 175, 80,", opacity, ");"))
     } else if (q >= 15) {
       #return("#FFC107") # Medium Quality (Yellow/Amber)
-      return("rgba(255, 193, 7, 0.6);")
+      return(paste0("rgba(255, 193, 7,", opacity, ");"))
     } else {
       #return("#F44336") # Low Quality (Red/Pink)
-      return("rgba(244, 67, 54, 0.6);")
+      return(paste0("rgba(244, 67, 54,", opacity, ");"))
     }
   }
   
   # 2. Map Q-scores to background colors and create tooltip text
+  # use seq_along to use index for crl
   
-  background_colors <- sapply(qscores_numeric, get_color)
+  colors <- sapply(seq_along(qscores_numeric), function(i){
+    get_color(
+      qscores_numeric[i], 
+      opacity = ifelse(i > crl_start & i < crl_end, 1, 0.4)
+    )
+  }
+  )
   
   # Create the data-tooltip attribute content (Position, Base, QV)
   base_positions <- seq_along(bases)
@@ -425,8 +436,8 @@ format_bases_as_html <- function(bases, qscores, qscore_type = "numeric") {
   # Styles ensure monospaced font, black text, and compact spacing.
   html_spans <- paste0(
     '<span class="base-tooltip" data-tooltip="', tooltip_content, 
-    '" style="background-color:', background_colors, 
-    '; color: #000000; padding: 1px 0px; margin: 0; line-height: 1.5; font-family: monospace; font-weight: lighter; font-size: 1.0em;">', 
+    '" style="background-color:',#background_colors, 
+    '; color:', colors,'; padding: 1px 0px; margin: 0; line-height: 1.5; font-family: monospace; font-weight: bold; font-size: 1.0em;">', 
     bases, 
     '</span>'
   )
