@@ -214,10 +214,14 @@ server <- function(input, output, session) {
     df() %>%
       rowwise() %>%
       mutate(
-        crl20 = crl(qscores = unlist(qscores), window_size = qc_thresholds$crl_window_size, qval = qc_thresholds$crl_qv_threshold)$crl,
-        crl_start = crl(qscores = unlist(qscores), window_size = qc_thresholds$crl_window_size, qval = qc_thresholds$crl_qv_threshold)$crl_start,
-        crl_end = crl(qscores = unlist(qscores), window_size = qc_thresholds$crl_window_size, qval = qc_thresholds$crl_qv_threshold)$crl_end
-      )
+        crl_results = list(crl(
+          qscores = unlist(qscores), window_size = qc_thresholds$crl_window_size, qval = qc_thresholds$crl_qv_threshold
+        )),
+        crl20 = crl_results$crl,
+        crl_start = crl_results$crl_start,
+        crl_end = crl_results$crl_end
+      ) %>%
+      select(-crl_results)
     # window size and QV threshold
   })
   
