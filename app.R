@@ -579,10 +579,13 @@ server <- function(input, output, session) {
       details = colDef(
         name = "",
         details = function(index){
-          bases <- data[index,]$data$data$PBAS.1 %>% str_split('') %>% unlist
-          qscores <- data[index,]$data$data$PCON.1
-          content <-format_bases_as_html(bases, qscores, crl_start = data$crl_start[index], crl_end = data$crl_end[index])
-          content
+          local({
+            bases <- data[index,]$data$data$PBAS.1 %>% str_split('') %>% unlist
+            qscores <- data[index,]$data$data$PCON.1
+            content <-format_bases_as_html(bases, qscores, crl_start = data$crl_start[index], crl_end = data$crl_end[index])
+            content
+          })
+          
         },
         html = TRUE
       )
