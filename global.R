@@ -1,12 +1,4 @@
-# read ab1 file
-# output is a data table with quality stats
 
-# usage
-# purrr::map_dfr(file_list, get_ab1)
-
-# or for large number of files use multi cores
-# plan(multisession, workers = 9)
-# furrr::future_map_dfr(august, get_ab1_quality)
 library(RcppRoll)
 library(sangeranalyseR)
 library(dplyr)
@@ -79,26 +71,6 @@ get_ab1 <- function(abfile) {
         crl20 <- 0
       }
       
-      #crl30 <- max(rl30$lengths[rl30$values], na.rm = TRUE)
-      
-      #============= Raw signal =======================================
-      # raw signal intensities, to be able to present them in a table as sparklines:
-      # https://glin.github.io/reactable/articles/examples.html#embedding-html-widgets
-      # store in the dataframe as list of values
-      # the values are roll means to reduce number of points to around 100
-      
-      # signal_counts <- obj@abifRawData@directory@numelements[match("DATA.1", names(obj@abifRawData@data))]
-      # signal <- rowMeans(
-      #   cbind(
-      #     RcppRoll::roll_max(obj@abifRawData@data$DATA.1, n = 100, by = 500), 
-      #     RcppRoll::roll_max(obj@abifRawData@data$DATA.2, n = 100, by = 500), 
-      #     RcppRoll::roll_max(obj@abifRawData@data$DATA.3, n = 100, by = 500), 
-      #     RcppRoll::roll_max(obj@abifRawData@data$DATA.4, n = 100, by = 500)
-      #     )
-      #   ) %>%
-      #   #RcppRoll::roll_max(n = 500, by = 500) %>%
-      #   round(digits = 0)
-      # #============= Raw signal =======================================
       
       df <- tibble::tibble(
         sample = obj@abifRawData@data$SMPL.1,
@@ -124,10 +96,7 @@ get_ab1 <- function(abfile) {
         gel_type = obj@abifRawData@data$GTyp.1,
         analysis_prot = obj@abifRawData@data$APrN.1,
         data_coll_modfile = obj@abifRawData@data$MODF.1,
-        dyeset_name = obj@abifRawData@data$DySN.1,
-        
-        # signal = list(signal) does not work as expected
-        #crl30 = crl30
+        dyeset_name = obj@abifRawData@data$DySN.1
         )
       # df$signal <- list(signal) # add signal as list to df 
       # so you can do reactable(columns = list(signal = colDef(cell = function(values) {sparkline(str_split(values, "\\|") %>% unlist() %>% as.numeric(), type = 'line')} )))
@@ -173,7 +142,7 @@ plot_abif_chromatogram <- function(rawdata, type = 'rawsignal') {
   }
   
   # Set a target max number of points for visualization
-  MAX_POINTS_FOR_PLOT <- ifelse(type == 'rawsignal', 3000, 6000) 
+  MAX_POINTS_FOR_PLOT <- ifelse(type == 'rawsignal', 2000, 6000) 
   run_length <- length(D1)
   
   # Extract the raw signal trace data (A, C, G, T)
@@ -226,15 +195,15 @@ plot_abif_chromatogram <- function(rawdata, type = 'rawsignal') {
     # Filter out base calls that are outside the trace length
     base_calls <- base_calls[base_calls$time <= run_length, ]
     
-    # 検 QV to Alpha Mapping Logic 検
+    
     # Scale the quality score (e.g., 0-60) to an alpha value (0-1).
     max_phred <- 60 
     
     base_calls$alpha_val <- pmin(base_calls$quality / max_phred, 1.0)
     # Set a minimum alpha floor (e.g., 0.3) so low-quality scores aren't invisible
-    base_calls$alpha_val <- pmax(base_calls$alpha_val, 0.3)
+    # base_calls$alpha_val <- pmax(base_calls$alpha_val, 0.3)
     
-    # 耳 Add a new column for conditional bar coloring 耳
+    # dd a new column for conditional bar coloring
     base_calls <- base_calls %>%
       dplyr::mutate(quality_color = dplyr::case_when(
         quality < 20   ~ "red",
@@ -350,7 +319,6 @@ plot_abif_chromatogram <- function(rawdata, type = 'rawsignal') {
       ) +
       scale_x_continuous(expand = expansion(mult = c(0, 0.02)))
   }
-  
   return(p)
 }
 
@@ -400,7 +368,7 @@ format_bases_as_html <- function(bases, qscores, qscore_type = "numeric", crl_st
       #return("#4CAF50") # High Quality (Green)
       return(paste0("rgba(76, 175, 80,", opacity, ");"))
     } else if (q >= 15) {
-      #return("#FFC107") # Medium Quality (Yellow/Amber)
+      #return("orange") # Medium Quality (Yellow/Amber)
       return(paste0("rgba(255, 193, 7,", opacity, ");"))
     } else {
       #return("#F44336") # Low Quality (Red/Pink)

@@ -3,11 +3,8 @@ library(bslib)
 library(dplyr)
 library(reactable)
 library(bsicons)
-library(purrr)
 library(sparkline)
 library(writexl) # 
-#library(ggrastr)
-#library(sangerseqR)
 
 source('global.R')
 
@@ -87,6 +84,7 @@ ui <- page_navbar(
 )
 
 server <- function(input, output, session) {
+  plan(multisession, workers = max(1, parallel::detectCores() - 1))
   
   # Show modal when QC settings button is clicked
   observeEvent(input$settings, {
@@ -396,7 +394,7 @@ server <- function(input, output, session) {
           style = "padding: 10px; padding-top: 0px; padding-bottom: 10px;",
           htmltools::div(
           class = "scrollable-plot-container",
-            plotOutput(plot_output_id, width = "12000px", height = "250px")
+            plotOutput(plot_output_id, width = "11000px", height = "250px")
           )
         )
       }
