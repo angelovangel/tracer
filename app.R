@@ -255,6 +255,8 @@ server <- function(input, output, session) {
       rawSeqLen = colDef(minWidth = 50),
       well = colDef(minWidth = 30, show = FALSE),
       data = colDef(show = FALSE),
+      crl_start = colDef(show = FALSE),
+      crl_end = colDef(show = FALSE),
       # CRL
       crl20 = colDef(
         name = paste0("CRL",  qc_thresholds$crl_qv_threshold), 
