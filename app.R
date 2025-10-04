@@ -10,7 +10,6 @@ library(writexl) #
 #library(sangerseqR)
 
 source('global.R')
-source('bases_as_html.R')
 
 sidebar <- sidebar(
   tags$div(
