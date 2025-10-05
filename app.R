@@ -231,13 +231,13 @@ server <- function(input, output, session) {
   
   
   # Create a reusable list of QC col defs with conditional formatting, it is for df2() that is used 3 times
-  create_qc_coldefs <- function(crl_fail, crl_suspect, qv_fail, qv_suspect, sn_fail, sn_suspect) {
+  create_qc_coldefs <- function(nsamples, crl_fail, crl_suspect, qv_fail, qv_suspect, sn_fail, sn_suspect) {
     list(
       # Sample name
       sample = colDef(
         minWidth = 200, 
-        #footer = paste0("Total ", nrow(df2()), " samples")),
-        footer = paste0("Total ", "samples")),
+        footer = paste0("Total ", nsamples, " samples")),
+        #footer = paste0("Total ", "samples")),
       # Other
       rawSeqLen = colDef(minWidth = 50),
       well = colDef(minWidth = 30, show = FALSE),
@@ -399,6 +399,7 @@ server <- function(input, output, session) {
       defaultColDef = colDef(footerStyle = list(color='grey', fontWeight = 'normal')),
       onClick = "expand", # Expand row details on click
       columns = create_qc_coldefs(
+        nsamples = nrow(df_table1_data()),
         crl_fail = qc_thresholds$crl20_fail, crl_suspect = qc_thresholds$crl20_suspect,
         qv_fail = qc_thresholds$basesQ20_fail, qv_suspect = qc_thresholds$basesQ20_suspect,
         sn_fail = qc_thresholds$sn_fail, sn_suspect = qc_thresholds$sn_suspect
@@ -505,11 +506,11 @@ server <- function(input, output, session) {
     content = function(file) {
       # Prepare data for download
       data_to_export <- df_table1_data() %>%
-        # Rename columns to be descriptive in the Excel file
+        # Rename columns 
         rename(
           !!paste0("CRL", qc_thresholds$crl_qv_threshold) := crl20,
           QV20_plus = basesQ20,
-          Raw_Mean_Qscore = rawMeanQscore,
+          Mean_Signal_Noise = meanSNratio,
           Raw_Seq_Length = rawSeqLen
         ) %>%
         # Select and order the final columns
@@ -518,7 +519,7 @@ server <- function(input, output, session) {
           Raw_Seq_Length, 
           !!paste0("CRL", qc_thresholds$crl_qv_threshold), 
           QV20_plus, 
-          Trimmed_Mean_Qscore, 
+          Mean_Signal_Noise, 
           QC_flag
         )
       
@@ -530,9 +531,9 @@ server <- function(input, output, session) {
           paste0("CRL", qc_thresholds$crl_qv_threshold, " Fail Threshold"),
           paste0("CRL", qc_thresholds$crl_qv_threshold, " Suspect Threshold"),
           "QV20+ Fail Threshold",
-          "QV20+ Suspect Threshold"
-          #"Qscore Fail Threshold",
-          #"Qscore Suspect Threshold"
+          "QV20+ Suspect Threshold",
+          "SN Ratio Fail Threshold",
+          "SN Ratio Suspect Threshold"
         ),
         Value = c(
           qc_thresholds$crl_window_size,
@@ -540,9 +541,9 @@ server <- function(input, output, session) {
           qc_thresholds$crl20_fail,
           qc_thresholds$crl20_suspect,
           qc_thresholds$basesQ20_fail,
-          qc_thresholds$basesQ20_suspect
-          #qc_thresholds$trimMeanQscore_fail,
-          #qc_thresholds$trimMeanQscore_suspect
+          qc_thresholds$basesQ20_suspect,
+          qc_thresholds$sn_fail,
+          qc_thresholds$sn_suspect
         )
       )
       
@@ -564,6 +565,7 @@ server <- function(input, output, session) {
       defaultColDef = colDef(footerStyle = list(color='grey', fontWeight = 'normal')),
       onClick = "expand", # Expand row details on click
       columns = create_qc_coldefs(
+        nsamples = nrow(df_table1_data()),
         crl_fail = qc_thresholds$crl20_fail, crl_suspect = qc_thresholds$crl20_suspect,
         qv_fail = qc_thresholds$basesQ20_fail, qv_suspect = qc_thresholds$basesQ20_suspect,
         sn_fail = qc_thresholds$sn_fail, sn_suspect = qc_thresholds$sn_suspect
@@ -623,6 +625,7 @@ server <- function(input, output, session) {
       defaultColDef = colDef(footerStyle = list(color='grey', fontWeight = 'normal')),
       onClick = "expand", # Expand row details on click
       columns = create_qc_coldefs(
+        nsamples = nrow(df_table1_data()),
         crl_fail = qc_thresholds$crl20_fail, crl_suspect = qc_thresholds$crl20_suspect,
         qv_fail = qc_thresholds$basesQ20_fail, qv_suspect = qc_thresholds$basesQ20_suspect,
         sn_fail = qc_thresholds$sn_fail, sn_suspect = qc_thresholds$sn_suspect
