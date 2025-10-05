@@ -2,6 +2,7 @@
 library(RcppRoll)
 library(sangeranalyseR)
 library(dplyr)
+library(stringr)
 library(ggnewscale)
 
 # qscore_mean
@@ -46,71 +47,51 @@ crl <- function(qscores, window_size, qval) {
 }
 
 get_ab1 <- function(abfile) {
+  obj <- sangerseqR::read.abif(filename = abfile)
+   
+  phredscores <- obj@data$PCON.1
+  # use sangerseqR::read.abif only
+  df <- tibble::tibble(
+    #sample = obj@abifRawData@data$SMPL.1,
+    sample = obj@data$SMPL.1,
+    containerID = obj@data$CTID.1,
+    #well = obj@abifRawData@data$TUBE.1,
+    well = obj@data$TUBE.1,
+    #rundate = paste0(obj@abifRawData@data$RUND.1$year, "-", obj@abifRawData@data$RUND.1$month, "-", obj@abifRawData@data$RUND.1$day),
+    rundate = paste0(obj@data$RUND.1$year, "-", obj@data$RUND.1$month, "-", obj@data$RUND.1$day),
+    #rawSeqLen = obj@QualityReport@rawSeqLength,
+    seq = obj@data$PBAS.1 %>% str_split(''),
+    qscores = list(phredscores),
+    rawSeqLen = obj@data$PBAS.1 %>% str_split('') %>% unlist() %>% length(),
+    
+    #rawMeanQscore = obj@QualityReport@rawMeanQualityScore,
+    rawMeanQscore = qscore_mean(obj@data$PCON.1),
+    meanSNratio = mean(obj@data$`SN%.1`),
+    
+    #basesQ20 = sum(phredscores >= 20),
+    basesQ20 = sum(obj@data$PCON.1 >= 20),
+    #basesQ30 = sum(phredscores >= 30),
+    #basesQ40 = sum(phredscores >= 40),
+    
+    crl20 = crl(phredscores, 20, 20)$crl,
+    #polymerLot = obj@abifRawData@data$SMLt.1,
+    polymerLot = obj@data$SMLt.1,
+    polymer_expdate = obj@data$SMED.1,
+    machine = obj@data$MCHN.1,
+    instrument = obj@data$HCFG.3,
+    capillary = obj@data$LANE.1,
+    #len_to_detector = obj@abifRawData@data$LNTD.1,
+    gel_type = obj@data$GTyp.1,
+    analysis_prot = obj@data$APrN.1,
+    data_coll_modfile = obj@data$MODF.1,
+    dyeset_name = obj@data$DySN.1
+    )
   
-  obj <- sangeranalyseR::SangerRead(readFileName = abfile, readFeature = 'Forward Read')
-    if(obj@objectResults@creationResult) {
-      
-      # calculate bases >Q20, >Q30, >Q40 as they are not explicitly stored in the SangerRead S4 instance
-      phredscores <- obj@QualityReport@qualityPhredScores
-      
-      # continuous read length (CRL) - The longest uninterrupted stretch of bases with a running QV average of 20 or higher
-      # use rle
-      # use window of 20 bp for Q scores to adhere to definition used in Sanger Analysis software
-      if (length(obj@QualityReport@qualityPhredScores) < 20) {
-        qscores_w20 <- rep(1, 20)
-      } else {
-        qscores_w20 <- RcppRoll::roll_mean(obj@QualityReport@qualityPhredScores, n = 20, na.rm = T)
-      }
-      #qscores_w20 <- RcppRoll::roll_mean(obj@QualityReport@qualityPhredScores, n = 20, na.rm = T)
-      rl20 <- rle(qscores_w20 >= 20)
-      #rl30 <- rle(qscores_w20 >= 30)
-      # if there are no rl20 then this is false and crl20 is set to 0, using just max() returns -Inf 
-      if(any(rl20$values)) {
-        crl20 <- max(rl20$lengths[rl20$values], na.rm = TRUE)
-      } else {
-        crl20 <- 0
-      }
-      
-      
-      df <- tibble::tibble(
-        sample = obj@abifRawData@data$SMPL.1,
-        well = obj@abifRawData@data$TUBE.1,
-        rundate = paste0(obj@abifRawData@data$RUND.1$year, "-", obj@abifRawData@data$RUND.1$month, "-", obj@abifRawData@data$RUND.1$day),
-        rawSeqLen = obj@QualityReport@rawSeqLength, 
-        trimSeqLen = obj@QualityReport@trimmedSeqLength,
-        trimStart = obj@QualityReport@trimmedStartPos,
-        trimEnd = obj@QualityReport@trimmedFinishPos,
-        rawMeanQscore = obj@QualityReport@rawMeanQualityScore,
-        trimMeanQscore = obj@QualityReport@trimmedMeanQualityScore,
-        remainingRatio = obj@QualityReport@remainingRatio,
-        basesQ20 = sum(phredscores >= 20),
-        basesQ30 = sum(phredscores >= 30),
-        basesQ40 = sum(phredscores >= 40),
-        crl20 = crl20,
-        polymerLot = obj@abifRawData@data$SMLt.1,
-        polymer_expdate = obj@abifRawData@data$SMED.1,
-        machine = obj@abifRawData@data$MCHN.1,
-        instrument = obj@abifRawData@data$HCFG.3,
-        capillary = obj@abifRawData@data$LANE.1,
-        len_to_detector = obj@abifRawData@data$LNTD.1,
-        gel_type = obj@abifRawData@data$GTyp.1,
-        analysis_prot = obj@abifRawData@data$APrN.1,
-        data_coll_modfile = obj@abifRawData@data$MODF.1,
-        dyeset_name = obj@abifRawData@data$DySN.1
-        )
-      # df$signal <- list(signal) # add signal as list to df 
-      # so you can do reactable(columns = list(signal = colDef(cell = function(values) {sparkline(str_split(values, "\\|") %>% unlist() %>% as.numeric(), type = 'line')} )))
-      df$seq <- as.character(obj@primarySeq) %>% str_split("")
-      df$seqtrimmed <- str_sub(as.character(obj@primarySeq), obj@QualityReport@trimmedStartPos, obj@QualityReport@trimmedFinishPos) %>% str_split("")
-      df$qscores <- list(phredscores)
-      # raw data
-      df$data <- list(data = obj@abifRawData@data)
-      return(
-        df
-      )
-    } else {
-      stop(obj@objectResults@errorMessage)
-    }
+    # raw data
+    df$data <- list(data = obj@data)
+    return(
+      df
+    )
 }
 
 # --- Core Plotting Function ---
@@ -297,11 +278,11 @@ plot_abif_chromatogram <- function(rawdata, type = 'rawsignal') {
       
       # Expand y-axis limits and set new x-axis labs and breaks
       coord_cartesian(ylim = c(0, max_intensity * 1.3)) +
-      labs(
-        x = "Basecall Index",
-        y = "Fluorescence Intensity",
-        color = "Nucleotide"
-      ) +
+      # labs(
+      #   x = "Basecall Index",
+      #   y = "Fluorescence Intensity",
+      #   color = "Nucleotide"
+      # ) +
       scale_x_continuous(
         breaks = axis_breaks,
         labels = axis_labels,
