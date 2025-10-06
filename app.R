@@ -713,7 +713,7 @@ server <- function(input, output, session) {
   # Run info
   output$table5 <- renderReactable({
     data <- df() %>%
-      select('sample', 'rundate', 'instrument', 'machine', 'well', 'capillary', 'gel_type', 'analysis_prot', 'data_coll_modfile', 'dyeset_name')
+      select('sample', 'containerID','rundate', 'instrument', 'machine', 'well', 'capillary', 'gel_type', 'analysis_prot', 'data_coll_modfile', 'dyeset_name')
     reactable(
       data, 
       pagination = FALSE, searchable = TRUE, highlight = TRUE, 
@@ -721,9 +721,10 @@ server <- function(input, output, session) {
       wrap = FALSE, resizable = TRUE,
       style = list(fontSize = "14px"),
       columns = list(
-        sample = colDef(minWidth = 200),
+        sample = colDef(minWidth = 150),
+        containerID = colDef(minWidth = 70),
         rundate = colDef(minWidth = 70),
-        instrument = colDef(minWidth = 70),
+        instrument = colDef(minWidth = 50),
         well = colDef(minWidth = 50),
         capillary = colDef(minWidth = 50)
       )

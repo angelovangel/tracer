@@ -1,8 +1,10 @@
 
 library(RcppRoll)
-library(sangeranalyseR)
+# library(sangerseqR) no need for stupid Bioconductor
+library(seqinr)
 library(dplyr)
 library(stringr)
+library(ggplot2)
 library(ggnewscale)
 
 # qscore_mean
@@ -346,18 +348,18 @@ format_bases_as_html <- function(bases, qscores, qscore_type = "numeric", crl_st
   # transparency is passed as arg in order to be able to vary it
   get_color <- function(q, opacity = 0.6) {
     if (q >= 20) {
-      #return("#4CAF50") # High Quality (Green)
-      return(paste0("rgba(76, 175, 80,", opacity, ");"))
-    } else if (q >= 15) {
-      #return("orange") # Medium Quality (Yellow/Amber)
-      return(paste0("rgba(255, 193, 7,", opacity, ");"))
+      return("#4CAF50") # High Quality (Green)
+      #return(paste0("rgba(76, 175, 80,", opacity, ");"))
+    } else if (q >= 10) {
+      return("orange") # Medium Quality (Yellow/Amber)
+      #return(paste0("rgba(255, 193, 7,", opacity, ");"))
     } else {
-      #return("#F44336") # Low Quality (Red/Pink)
-      return(paste0("rgba(244, 67, 54,", opacity, ");"))
+      return("#F44336") # Low Quality (Red/Pink)
+      #return(paste0("rgba(244, 67, 54,", opacity, ");"))
     }
   }
   
-  # 2. Map Q-scores to background colors and create tooltip text
+  # 2. Map Q-scores to colors and create tooltip text
   # use seq_along to use index for crl
   
   colors <- sapply(seq_along(qscores_numeric), function(i){
@@ -365,6 +367,12 @@ format_bases_as_html <- function(bases, qscores, qscore_type = "numeric", crl_st
       qscores_numeric[i], 
       opacity = ifelse(i > crl_start & i < crl_end, 1, 0.4)
     )
+  }
+  )
+  
+  # # Use grey background for seq outside crl
+  bg_colors <- sapply(seq_along(qscores_numeric), function(i) {
+    ifelse(i < crl_start | i > crl_end, "lightgrey", "")
   }
   )
   
@@ -385,8 +393,8 @@ format_bases_as_html <- function(bases, qscores, qscore_type = "numeric", crl_st
   # Styles ensure monospaced font, black text, and compact spacing.
   html_spans <- paste0(
     '<span class="base-tooltip" data-tooltip="', tooltip_content, 
-    '" style="background-color:',#background_colors, 
-    '; color:', colors,'; padding: 1px 0px; margin: 0; line-height: 1.5; font-family: monospace; font-weight: bold; font-size: 1.0em;">', 
+    '" style="background-color:', bg_colors, 
+    '; color:', colors,'; padding: 1px 0px; margin: 0; line-height: 1.5; font-family: monospace; font-weight: normal; font-size: 1.0em;">', 
     bases, 
     '</span>'
   )
@@ -451,7 +459,7 @@ format_bases_as_html <- function(bases, qscores, qscore_type = "numeric", crl_st
       border-radius: 4px;
       white-space: nowrap; /* Keep content on one line */
       font-size: 1em;
-      opacity: 1; 
+      opacity: 0.7; 
       pointer-events: none; 
       transition: opacity 0.1s; 
     }
