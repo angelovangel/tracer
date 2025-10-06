@@ -1,6 +1,5 @@
 
 library(RcppRoll)
-# library(sangerseqR) no need for stupid Bioconductor
 library(seqinr)
 library(dplyr)
 library(stringr)
@@ -442,6 +441,12 @@ format_bases_as_html <- function(bases, qscores, qscore_type = "numeric", crl_st
       cursor: default;
     }
     
+    /* === Shadow the hovered base by changing its background === */
+    .base-tooltip:hover {
+      background-color: #dac586 !important; /* Light blue shadow */
+    }
+    /* ============================================================= */
+    
     /* Tooltip text box - appears instantly on hover */
     .base-tooltip[data-tooltip]:hover::after {
       content: attr(data-tooltip);
@@ -449,8 +454,8 @@ format_bases_as_html <- function(bases, qscores, qscore_type = "numeric", crl_st
       z-index: 10;
       top: 50%; /* Center vertically */
       left: 100%; /* Start position right of the span */
-      /* Shift left by 50% of its width, then add 8px offset */
-      transform: translateY(-50%) translateX(8px); 
+      /* Shift left by 50% of its width, then add 18px offset */
+      transform: translateY(-50%) translateX(18px); 
       
       /* Styling */
       background-color: #333;
@@ -464,13 +469,13 @@ format_bases_as_html <- function(bases, qscores, qscore_type = "numeric", crl_st
       transition: opacity 0.1s; 
     }
     
-    /* Tooltip arrow (optional, pointing left towards the base) */
+    /* Tooltip arrow (optional, pointing left towards the base)
     .base-tooltip[data-tooltip]:hover::before {
       content: "";
       position: absolute;
       top: 50%; /* Center vertically */
       left: 100%; /* Position at the right edge of the span */
-      transform: translateY(-50%) translateX(3px); /* Move slightly into the text box */
+      transform: translateY(-50%) translateX(1px); /* Move slightly into the text box */
       
       /* Arrow shape (Pointing Left) */
       border-width: 5px;
@@ -480,7 +485,7 @@ format_bases_as_html <- function(bases, qscores, qscore_type = "numeric", crl_st
       opacity: 1;
       pointer-events: none;
       transition: opacity 0.1s;
-    }
+    } */
   '
   
   # 5. Wrap the formatted HTML content in a scrollable container including the new CSS

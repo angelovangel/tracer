@@ -5,11 +5,8 @@ library(reactable)
 library(bsicons)
 library(sparkline)
 library(writexl) # 
-#library(reactlog)
 
 source('global.R')
-
-#reactlog_enable()
 
 sidebar <- sidebar(
   tags$div(
