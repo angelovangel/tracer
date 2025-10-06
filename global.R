@@ -323,8 +323,12 @@ format_bases_as_html <- function(bases, qscores, qscore_type = "numeric", crl_st
   }
   
   if (length(bases) != length(qscores)) {
-    # If the lengths don't match, return an error message
-    return("Error: Base sequence and quality scores must have the same length.")
+    # If the lengths don't match,
+    # FIX for differing vector lengths: Find the minimum length and truncate all vectors.
+    min_len <- min(length(bases), length(qscores))
+    bases <- bases[1:min_len] 
+    qscores <- qscores[1:min_len]
+    #return("Error: Base sequence and quality scores must have the same length.")
   }
   
   # --- 0. Quality Score Conversion ---
@@ -382,9 +386,10 @@ format_bases_as_html <- function(bases, qscores, qscore_type = "numeric", crl_st
   
   # Using data-tooltip attribute for custom CSS tooltip
   tooltip_content <- paste0(
-    "Pos: ", base_positions, 
-    " | Base: ", bases, 
-    " | QV: ", qscores_rounded
+    bases, ":", base_positions, " | QV:", qscores_rounded
+    #"Pos: ", base_positions, 
+    #" | Base: ", bases, 
+    #" | QV: ", qscores_rounded
   )
   
   # 3. Create a vector of <span> tags with inline CSS and DATA-TOOLTIP attribute
