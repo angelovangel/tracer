@@ -42,6 +42,7 @@ ui <- page_navbar(
   sidebar = sidebar,
   title = "",
   header = tags$head(
+    
     tags$style(
       # CSS to make the chromatogram plot container horizontally scrollable
       HTML("
@@ -53,8 +54,9 @@ ui <- page_navbar(
         /* START OF NEW GLOBAL CSS FOR TOOLTIP WIDTH */
         .jqstooltip {
           /* Use !important to override any conflicting styles from Shiny/Bootstrap/Theme */
-          width: 100px !important; 
-          min-width: 100px !important;
+          background-color: rgb(0,0,0,0.7) !important;
+          width: 350px !important; 
+          min-width: 300px !important;
           /* You might also need to ensure it doesn't try to inherit 100% width */
           box-sizing: content-box !important;
         }
@@ -659,6 +661,8 @@ server <- function(input, output, session) {
     #qc_thresholds$crl_window_size, qval = qc_thresholds$crl_qv_threshold
     reactable(
       data,
+      pagination = FALSE, searchable = TRUE, highlight = TRUE, bordered = TRUE, 
+      striped = FALSE, compact = TRUE, resizable = TRUE, wrap = FALSE,
       style = list(fontSize = "14px"),
       columns = list(
         sample = colDef(minWidth = 200, vAlign = 'bottom'),
@@ -671,40 +675,45 @@ server <- function(input, output, session) {
           vAlign = 'bottom',
           name = paste0("QV roll mean (CRL", qc_thresholds$crl_qv_threshold, ")"),
           cell = function(value, index) {
-    
+            sample_name <- data[index,]$sample
+            crlstart <- data[index,]$crl_start
+            crlend <- data[index,]$crl_end
+            
             sp1 <- sparkline(
               #value,
               round(RcppRoll::roll_mean(value, n = qc_thresholds$crl_window_size, by = 1, na.rm = T, fill = c(0,0,0)), 0), # fill to avoid crashes with rawSeqLen < window
               type = 'line', 
-              lineColor = "darkred",       # 
+              lineColor = "#e6550d",       # 
               normalRangeColor = "lightgrey", #
-              normalRangeMin = 0,
-              normalRangeMax = qc_thresholds$crl_qv_threshold,
-              width = 800, height = 50,
+              #normalRangeMin = 0,
+              #normalRangeMax = qc_thresholds$crl_qv_threshold,
+              width = 800, height = 45,
               chartRangeMin = 1,
               chartRangeMax = 70,
               fillColor = NA, 
               lineWidth = 3,
               #tooltipFormatter = js_formatter
-              tooltipFormat = 'Position: <b>{{x}}</b><br>Roll mean QV: <b>{{y}}</b>'
+              tooltipFormat = paste0(
+                '<a style = "font-size:12px; text-align: right;">',
+                '<i>',sample_name, '</i><br>',
+                'CRL start-end: <b>', crlstart, '-', crlend,'</b><br>',
+                'Pos: <b>{{x}}</b><br>Roll mean QV: <b>{{y}}</b></a>'
+                )
             )
             # find out where to place the bars
             a <- rep(0, data[index, ]$crl_start)
-            b <- rep(0, data[index, ]$crl_end - data[index, ]$crl_start)
+            b <- rep(70, data[index, ]$crl_end - data[index, ]$crl_start)
             c <- rep(0, data[index, ]$rawSeqLen - data[index, ]$crl_end)
             #
             sp2 <- sparkline(
-              c(a, 1, b, 1, c),
-              type = 'bar', barColor = 'black', zeroColor = 'grey', disableTooltips = TRUE
+              c(a, 70, b, 70, c),
+              type = 'bar', barColor = 'rgb(161,217,155, 0.25)', zeroColor = 'grey', disableTooltips = FALSE, width = 800, height = 45
             )
-            spk_composite(sp1, sp2, options = list(width = 800, height = 50))
+            spk_composite(sp2,sp1)
           },
-          minWidth = 800
+          minWidth = 700
         )
-      ),
-      pagination = FALSE, searchable = TRUE, highlight = FALSE,
-      bordered = F, striped = FALSE, compact = F,
-      wrap = FALSE, resizable = TRUE
+      )
       #style = list(fontSize = "14px")
     )
   })

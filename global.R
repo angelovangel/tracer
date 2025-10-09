@@ -448,7 +448,7 @@ format_bases_as_html <- function(bases, qscores, qscore_type = "numeric", crl_st
     
     /* === Shadow the hovered base by changing its background === */
     .base-tooltip:hover {
-      background-color: #dac586 !important; /* Light blue shadow */
+      background-color: #dac586 !important; 
     }
     /* ============================================================= */
     
