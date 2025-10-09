@@ -671,11 +671,13 @@ server <- function(input, output, session) {
           vAlign = 'bottom',
           name = paste0("QV roll mean (CRL", qc_thresholds$crl_qv_threshold, ")"),
           cell = function(value, index) {
+    
             sp1 <- sparkline(
-              round(RcppRoll::roll_mean(value, n = qc_thresholds$crl_window_size, by = 1), 0),
+              #value,
+              round(RcppRoll::roll_mean(value, n = qc_thresholds$crl_window_size, by = 1, na.rm = T, fill = c(0,0,0)), 0), # fill to avoid crashes with rawSeqLen < window
               type = 'line', 
-              lineColor = "darkred",       # Color for values outside normalRange (i.e., > crl_qv_threshold)
-              normalRangeColor = "lightgrey", # Color for values inside normalRange (i.e., <= crl_qv_threshold)
+              lineColor = "darkred",       # 
+              normalRangeColor = "lightgrey", #
               normalRangeMin = 0,
               normalRangeMax = qc_thresholds$crl_qv_threshold,
               width = 800, height = 50,
