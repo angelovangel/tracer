@@ -317,7 +317,7 @@ plot_abif_chromatogram <- function(rawdata, type = 'rawsignal') {
 #              - "fastq_ascii": qscores is a vector of single-character ASCII codes.
 #
 # Returns: A single HTML string.
-format_bases_as_html <- function(bases, qscores, qscore_type = "numeric", crl_start, crl_end) {
+format_bases_as_html <- function(bases, qscores, crl_start, crl_end) {
   if ( any(!is.numeric(crl_start), !is.numeric(crl_end)) ) {
     return("Error: CRL start and end not numeric!")
   }
@@ -331,21 +331,8 @@ format_bases_as_html <- function(bases, qscores, qscore_type = "numeric", crl_st
     #return("Error: Base sequence and quality scores must have the same length.")
   }
   
-  # --- 0. Quality Score Conversion ---
-  # Convert FASTQ ASCII scores to numeric Phred scores if specified
-  if (qscore_type == "fastq") {
-    # Assuming Phred+33 encoding
-    # Convert ASCII characters to their integer code, then subtract 33
-    qscores_numeric <- as.integer(charToRaw(paste(qscores, collapse = ""))) - 33
-    # Check if conversion resulted in correct length, if input was a character vector
-    if (length(qscores_numeric) != length(qscores)) {
-      stop("Error: FASTQ ASCII conversion failed. Check input format.")
-    }
-  } else {
-    # Assume qscores are already numeric Phred scores
-    qscores_numeric <- qscores
-  }
-  
+  qscores_numeric <- qscores
+ 
   # 1. Define color mapping function based on Phred scores
   # Q >= 20: Green, Q >= 15: Yellow/Amber, Q < 15: Red/Pink
   # transparency is passed as arg in order to be able to vary it
