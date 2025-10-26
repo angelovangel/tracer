@@ -7,6 +7,7 @@ library(sparkline)
 library(writexl) # 
 
 source('global.R')
+source('R/chromatogram.R')
 
 sidebar <- sidebar(
   tags$div(
@@ -42,27 +43,32 @@ ui <- page_navbar(
   sidebar = sidebar,
   title = "",
   header = tags$head(
-    
     tags$style(
-      # CSS to make the chromatogram plot container horizontally scrollable
+      # CSS for chromatogram plot container and quality colors
       HTML("
         .scrollable-plot-container {
           overflow-x: auto;
-          width: 100%; /* Ensures the container takes up the full width of the detail row */
-          white-space: nowrap; /* Important to keep the content on one line for horizontal scrolling */
+          width: 100%;
+          white-space: nowrap;
         }
-        /* START OF NEW GLOBAL CSS FOR TOOLTIP WIDTH */
-        .jqstooltip {
-          /* Use !important to override any conflicting styles from Shiny/Bootstrap/Theme */
-          background-color: rgb(0,0,0,0.7) !important;
-          width: 350px !important; 
-          min-width: 300px !important;
-          /* You might also need to ensure it doesn't try to inherit 100% width */
-          box-sizing: content-box !important;
+        /* Quality score colors */
+        .qv-high { color: #4CAF50; }
+        .qv-medium { color: #FFC107; }
+        .qv-low { color: #F44336; }
+        /* Chromatogram container styles */
+        .chromatogram-output {
+          border: 1px solid #eee;
+          border-radius: 4px;
+          background: white;
+          margin: 8px 0;
         }
-        /* END OF NEW GLOBAL CSS */
       ")
-    )
+    ),
+    # Add D3.js dependency
+    tags$script(src = "https://d3js.org/d3.v7.min.js"),
+    # Add our visualization modules
+    tags$script(src = "js/chromatogram.js"),
+    tags$script(src = "js/sequence-viewer.js")
   ),
   nav_panel('Basecall',
             reactableOutput('table1'),
@@ -412,34 +418,42 @@ server <- function(input, output, session) {
       },
       #################
       details = function(index) {
-        # 1. Define a unique ID for the plotOutput for this row and the detail container 
-        plot_output_id <- paste0('chrom_', index)
+        # Define unique IDs for the chromatogram
+        chrom_output_id <- paste0('chrom_', index)
         detail_container_id <- paste0('detail_chrom', index)
-
-        # 2. Render the plot inside the details row when it's opened
+        
+        # Render the chromatogram when the row is expanded
         local({
-          output[[plot_output_id]] <- renderPlot({
-          raw_abif_data <- df2()[index, ]$data
-          
-          if (length(raw_abif_data) > 0) {
-            plot_abif_chromatogram(raw_abif_data, type = 'basecall')
-          } else {
-            ggplot() + labs(title = "No ABIF raw data found for this sample.")
-          }
-          }
-          #width = 12000,
-          #height = 250
-          )
+          output[[chrom_output_id]] <- renderChromatogram({
+            raw_abif_data <- df2()[index, ]$data
+            
+            if (length(raw_abif_data) > 0) {
+              # Format data for D3
+              list(
+                traces = list(
+                  DATA1 = raw_abif_data$data$DATA.9,
+                  DATA2 = raw_abif_data$data$DATA.10,
+                  DATA3 = raw_abif_data$data$DATA.11,
+                  DATA4 = raw_abif_data$data$DATA.12
+                ),
+                bases = strsplit(raw_abif_data$data$PBAS.1, "")[[1]],
+                # Convert PLOC.1 to zero-based indices for JS
+                peakLocations = as.numeric(raw_abif_data$data$PLOC.1) - 1,
+                qualityScores = raw_abif_data$data$PCON.1,
+                plotWidth = 11000  # Set a wide plot width like the original ggplot
+              )
+            }
+          })
         })
-
-        # 3. Return the HTML structure containing the plotOutput, scrolling container
+        
+        # Return the container with our custom chromatogram output
         htmltools::div(
-          id = detail_container_id, # Assign a unique ID to scroll to
-          # Keep padding-bottom to prevent table footer overlap
+          id = detail_container_id,
           style = "padding: 10px; padding-top: 0px; padding-bottom: 10px;",
           htmltools::div(
-          class = "scrollable-plot-container",
-            plotOutput(plot_output_id, width = "11000px", height = "250px")
+            class = "scrollable-plot-container",
+            style = "overflow-x: auto; width: 100%; white-space: nowrap;",
+            chromatogramOutput(chrom_output_id, width = "11000px", height = "250px")
           )
         )
       }
@@ -578,47 +592,49 @@ server <- function(input, output, session) {
       },
       #################
       details = function(index) {
-        # 1. Define a unique ID for the plotOutput for this row and the detail container 
-        plot_output_id <- paste0('raw_', index)
+        # Define unique IDs for the chromatogram
+        chrom_output_id <- paste0('raw_', index)
         detail_container_id <- paste0('detail_raw_', index)
         
-        # 2. Render the plot inside the details row when it's opened
+        # Render the chromatogram when the row is expanded
         local({
-          output[[plot_output_id]] <- renderPlot({
+          output[[chrom_output_id]] <- renderChromatogram({
             raw_abif_data <- df2()[index, ]$data
             
             if (length(raw_abif_data) > 0) {
-              plot_abif_chromatogram(raw_abif_data, type = 'rawsignal')
-            } else {
-              ggplot() + labs(title = "No ABIF raw data found for this sample.")
+              # Format data for D3 - raw signal only
+              list(
+                traces = list(
+                  DATA1 = raw_abif_data$data$DATA.1,
+                  DATA2 = raw_abif_data$data$DATA.2,
+                  DATA3 = raw_abif_data$data$DATA.3,
+                  DATA4 = raw_abif_data$data$DATA.4
+                ),
+                # No bases or quality scores for raw signal view
+                plotWidth = 1100  # Smaller width than basecall view
+              )
             }
-          }
-          #width = 12000,
-          #height = 250
-          )
+          })
         })
         
-        # 3. Return the HTML structure containing the plotOutput, scrolling container
+        # Return the container with our custom chromatogram output
         htmltools::div(
-          id = detail_container_id, # Assign a unique ID to scroll to
-          # Keep padding-bottom to prevent table footer overlap
+          id = detail_container_id,
           style = "padding: 10px; padding-top: 0px; padding-bottom: 10px;",
           htmltools::div(
             class = "scrollable-plot-container",
-            plotOutput(plot_output_id, width = "1200px", height = "250px")
+            style = "overflow-x: auto; width: 100%; white-space: nowrap;",
+            chromatogramOutput(chrom_output_id, width = "5000px", height = "250px")
           )
         )
       }
     )
-    #make_qc_table(fdata = df_table1_data(), ftype = 'rawsignal', fwidth = 1200, fheight = 200)
   })
   
-  # HTML sequence
+  # Sequence viewer output
   output$table3 <- renderReactable({
-    data <-  df_table1_data()
-    
     reactable(
-      data,
+      df_table1_data(),
       pagination = FALSE, searchable = TRUE, highlight = TRUE, bordered = TRUE, striped = FALSE, compact = TRUE, resizable = TRUE,
       style = list(fontSize = "14px"),
       defaultColDef = colDef(footerStyle = list(color='grey', fontWeight = 'normal')),
@@ -629,29 +645,75 @@ server <- function(input, output, session) {
         qv_fail = qc_thresholds$basesQ20_fail, qv_suspect = qc_thresholds$basesQ20_suspect,
         sn_fail = qc_thresholds$sn_fail, sn_suspect = qc_thresholds$sn_suspect
       ),
-      #columns = coldefs(),
-      # ADD THIS rowStyle TO DRAW A LINE ABOVE THE FOOTER
       rowStyle = function(index) {
         if (index == nrow(df_table1_data())) {
-          list(borderBottom = "1px solid grey") #
+          list(borderBottom = "1px solid grey")
         }
       },
-      
-      details = colDef(
-        name = "",
-        details = function(index){
-          local({
-            bases <- data[index,]$data$data$PBAS.1 %>% str_split('') %>% unlist
-            qscores <- data[index,]$data$data$PCON.1
-            content <-format_bases_as_html(bases, qscores, crl_start = data$crl_start[index], crl_end = data$crl_end[index])
-            content
+      details = function(index) {
+        # Define unique IDs for sequence viewer
+        seq_output_id <- paste0('seq_', index)
+        detail_container_id <- paste0('detail_seq_', index)
+        
+        # Render sequence when the row is expanded
+        local({
+          output[[seq_output_id]] <- renderSequence({
+            data_row <- df2()[index, ]
+            raw_abif_data <- data_row$data
+            
+            if (length(raw_abif_data) == 0 || is.null(raw_abif_data$data$PBAS.1)) {
+              warning("No sequence data available")
+              return(NULL)
+            }
+            
+            # Process and format data for sequence viewer
+            bases <- tryCatch({
+              strsplit(raw_abif_data$data$PBAS.1, "")[[1]]
+            }, error = function(e) {
+              warning("Error processing bases: ", e$message)
+              NULL
+            })
+            
+            if (is.null(bases) || length(bases) == 0) {
+              warning("No base sequence found")
+              return(NULL)
+            }
+            
+            # Ensure bases and qscores have the same length by truncating to the shorter
+            qscores_vec <- as.numeric(raw_abif_data$data$PCON.1)
+            min_len <- min(length(bases), length(qscores_vec))
+            if (min_len < 1) {
+              warning("Empty sequence after processing")
+              return(NULL)
+            }
+            if (min_len < length(bases) || min_len < length(qscores_vec)) {
+              warning(sprintf("Truncating sequence to min length %d (bases:%d, qscores:%d)",
+                              min_len, length(bases), length(qscores_vec)))
+            }
+            # Clamp CRL bounds to the new length
+            crl_start_val <- as.numeric(data_row$crl_start) + 1
+            crl_end_val <- as.numeric(data_row$crl_end) + 1
+            crl_start_val <- min(crl_start_val, min_len)
+            crl_end_val <- min(crl_end_val, min_len)
+            if (crl_start_val > crl_end_val) crl_start_val <- crl_end_val
+
+            list(
+              bases = bases[seq_len(min_len)],
+              qscores = qscores_vec[seq_len(min_len)],
+              crlStart = crl_start_val,
+              crlEnd = crl_end_val
+            )
           })
-          
-        },
-        html = TRUE
-      )
+        })
+        
+        # Return the container with sequence viewer
+        htmltools::div(
+          id = detail_container_id,
+          style = "padding: 10px; padding-top: 0px; padding-bottom: 10px;",
+          sequenceOutput(seq_output_id)
+        )
+      }
     )
-      
   })
   
   #CRL Traces
