@@ -21,63 +21,98 @@
     // Clear existing content
     el.innerHTML = '';
     
-    // Create container
+    // Create container with optimized styles
     const container = document.createElement('div');
-    container.style.cssText = `
-      white-space: pre-wrap;
-      word-break: break-all;
-      min-height: 100px;
-      max-height: 600px;
-      overflow-y: auto;
-      border: 1px solid #ddd;
-      padding: 14px;
-      font-size: 11px;
-      font-family: monospace;
-      line-height: 1.5;
-    `;
+    Object.assign(container.style, {
+      whiteSpace: 'pre-wrap',
+      wordBreak: 'break-all',
+      minHeight: '100px',
+      maxHeight: '600px',
+      overflowY: 'auto',
+      border: '1px solid #ddd',
+      padding: '14px',
+      fontSize: '13px',
+      fontFamily: 'monospace',
+      lineHeight: '1.5'
+    });
 
-    // Create base spans with quality coloring
+    // Add event delegation for better performance
+    container.addEventListener('mouseover', function(e) {
+      const span = e.target;
+      if (span.tagName === 'SPAN') {
+        span.style.backgroundColor = '#dac586';
+        showTooltip(e, `${span.textContent}:${+span.dataset.i + 1} | QV:${span.dataset.qv}`);
+      }
+    });
+
+    container.addEventListener('mouseout', function(e) {
+      const span = e.target;
+      if (span.tagName === 'SPAN') {
+        span.style.backgroundColor = span.dataset.inCrl === 'false' ? '#c3c3c3ff' : 'transparent';
+        hideTooltip();
+      }
+    });
+
+    container.addEventListener('mousemove', function(e) {
+      if (e.target.tagName === 'SPAN') {
+        updateTooltipPosition(e);
+      }
+    });
+
+    // Create all base spans at once using DocumentFragment
+    const fragment = document.createDocumentFragment();
+    const baseElements = new Array(bases.length);
+    
+    // Pre-create common elements for spacing
+    const spaceNode = document.createTextNode('\u00A0');
+    const brNode = document.createElement('br');
+    
+    // Pre-compute base styles for better performance
+    const baseStyle = {
+      padding: '1px 0',
+      cursor: 'default'
+    };
+    
+    // Use a single template for better performance
+    const spanTemplate = document.createElement('span');
+    Object.assign(spanTemplate.style, baseStyle);
+    
+    // Build all elements in memory first
     for (let i = 0; i < bases.length; i++) {
-      const span = document.createElement('span');
+      const span = spanTemplate.cloneNode(false);
       const qv = qscores[i];
       const isInCRL = i >= crlStart && i <= crlEnd;
       
-      // Base styling
+      // Set content and styling
       span.textContent = bases[i];
       span.style.color = qv >= 20 ? QV_COLORS.high :
                         qv >= 10 ? QV_COLORS.medium :
                                  QV_COLORS.low;
       span.style.backgroundColor = !isInCRL ? '#c3c3c3ff' : 'transparent';
-      span.style.padding = '1px 0';
-      span.style.cursor = 'default';
       
-      // Tooltip data
-      span.dataset.position = i + 1;
-      span.dataset.qv = Math.round(qv);
+      // Store minimal data needed for tooltips
+      span.dataset.i = i;
+      span.dataset.qv = qv;
+      span.dataset.inCrl = isInCRL;
       
-      // Add hover effect and tooltip
-      span.onmouseover = function(e) {
-        this.style.backgroundColor = '#dac586';
-        showTooltip(e, `${bases[i]}:${i + 1} | QV:${Math.round(qv)}`);
-      };
-      span.onmouseout = function() {
-        this.style.backgroundColor = !isInCRL ? '#c3c3c3ff' : 'transparent';
-        hideTooltip();
-      };
-      span.onmousemove = updateTooltipPosition;
+      // Add to fragment
+      fragment.appendChild(span);
+      baseElements[i] = span;
       
-      container.appendChild(span);
-      
-      // Add spacing every 10 bases and line break every 100 bases
+      // Add spacing using cached nodes
       if (i < bases.length - 1) {
         if ((i + 1) % 100 === 0) {
-          container.appendChild(document.createElement('br'));
+          fragment.appendChild(brNode.cloneNode());
         } else if ((i + 1) % 10 === 0) {
-          container.appendChild(document.createTextNode('\u00A0')); // &nbsp;
+          fragment.appendChild(spaceNode.cloneNode());
         }
       }
     }
     
+    // Append the fragment to container first
+    container.appendChild(fragment);
+    
+    // Then append container to the element
     el.appendChild(container);
   }
 
