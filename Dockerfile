@@ -9,9 +9,11 @@ COPY renv.lock .
 RUN R -e "install.packages('renv')"
 RUN R -e "renv::restore()"
 
-# Copy the Shiny app file to the server directory
+# Copy the Shiny app files to the server directory
 COPY app.R /srv/shiny-server/
 COPY global.R /srv/shiny-server/
+COPY R/ /srv/shiny-server/R/
+COPY www/ /srv/shiny-server/www/
 
 
 # Expose the application port

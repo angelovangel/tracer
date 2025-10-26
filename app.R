@@ -8,6 +8,7 @@ library(writexl) #
 
 source('global.R')
 source('R/chromatogram.R')
+source('R/sequence-viewer.R')
 
 sidebar <- sidebar(
   tags$div(
