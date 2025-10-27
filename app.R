@@ -428,6 +428,7 @@ server <- function(input, output, session) {
           output[[chrom_output_id]] <- renderChromatogram({
             raw_abif_data <- df2()[index, ]$data
             
+            
             if (length(raw_abif_data) > 0) {
               # Format data for D3
               list(
@@ -601,15 +602,19 @@ server <- function(input, output, session) {
         local({
           output[[chrom_output_id]] <- renderChromatogram({
             raw_abif_data <- df2()[index, ]$data
+            # subsampling
+            MAX_POINTS_FOR_PLOT <- 2000
+            step_size <- ceiling(length(raw_abif_data$data$DATA.1) / MAX_POINTS_FOR_PLOT)
+            subsample_index <- seq(1, length(raw_abif_data$data$DATA.1), by = step_size)
             
             if (length(raw_abif_data) > 0) {
               # Format data for D3 - raw signal only
               list(
                 traces = list(
-                  DATA1 = raw_abif_data$data$DATA.1,
-                  DATA2 = raw_abif_data$data$DATA.2,
-                  DATA3 = raw_abif_data$data$DATA.3,
-                  DATA4 = raw_abif_data$data$DATA.4
+                  DATA1 = raw_abif_data$data$DATA.1[subsample_index],
+                  DATA2 = raw_abif_data$data$DATA.2[subsample_index],
+                  DATA3 = raw_abif_data$data$DATA.3[subsample_index],
+                  DATA4 = raw_abif_data$data$DATA.4[subsample_index]
                 ),
                 # No bases or quality scores for raw signal view
                 plotWidth = 1100  # Smaller width than basecall view
